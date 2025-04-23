@@ -17,7 +17,7 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
 
-mversion = "v1.0.2"
+mversion = "v1.0.3"
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
@@ -53,7 +53,7 @@ class MediaDownloaderMod(loader.Module):
         "cfg_force_hd": "Always download HD (if available).",
         "auto_update_ch": "Autoupdate module when new versions.",
         "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Please provide a username and story number.",
-        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Format: `.tgsloader <username> <story_number>`",
+        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Format: tgsload <username> <story_number>`",
         "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> The story number must be a positive integer.",
         "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {error}",
         "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> No stories found.",
@@ -69,7 +69,7 @@ class MediaDownloaderMod(loader.Module):
     strings_ru = {
         "name": "Media-Downloader",
         "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажите имя пользователя и номер истории.",
-        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Формат: .tgsloader <имя_пользователя> <номер_истории>`",
+        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Формат: tgsload <имя_пользователя> <номер_истории>`",
         "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Номер истории должен быть положительным числом.",
         "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе API: {error}",
         "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Истории не найдены.",
