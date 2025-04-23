@@ -15,13 +15,13 @@ import os
 import tempfile
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
-import asyncio
+from urllib.parse import urlparse
 
-mversion = "v1.0.1"
+mversion = "v1.0.2"
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Download media from Spotify and TikTok."""
+    """👑 Multimedia Loader v1.0.2"""
 
     strings = {
         "name": "Media-Downloader",
@@ -52,10 +52,34 @@ class MediaDownloaderMod(loader.Module):
         "cfg_show_spotify_link": "Show link for Spotify caption message.",
         "cfg_force_hd": "Always download HD (if available).",
         "auto_update_ch": "Autoupdate module when new versions.",
+        "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Please provide a username and story number.",
+        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Format: `.tgsloader <username> <story_number>`",
+        "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> The story number must be a positive integer.",
+        "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {error}",
+        "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> No stories found.",
+        "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Invalid story number. Available range: 1 - {max_index}",
+        "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> The selected story has no URL.",
+        "download_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Error downloading the file: {error}",
+        "success_tgs": "<emoji document_id=5316653334688446735>✅</emoji> Story downloaded successfully!\nStory caption: {caption}",
+        "success_no_caption_tgs": "<emoji document_id=5316653334688446735>✅</emoji> Story downloaded successfully!",
+        "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading story...",
+        "cfg_show_caption_tgs": "Display captions for downloaded stories.",
     }
 
     strings_ru = {
         "name": "Media-Downloader",
+        "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажите имя пользователя и номер истории.",
+        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Формат: .tgsloader <имя_пользователя> <номер_истории>`",
+        "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Номер истории должен быть положительным числом.",
+        "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе API: {error}",
+        "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Истории не найдены.",
+        "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Неверный номер истории. Доступный диапазон: 1 - {max_index}",
+        "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> У выбранной истории отсутствует URL.",
+        "download_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при загрузке файла: {error}",
+        "success_tgs": "<emoji document_id=5316653334688446735>✅</emoji> История успешно загружена!\nОписание: {caption}"
+        "success_no_caption_tgs": "<emoji document_id=5316653334688446735>✅</emoji> История успешно загружена!",
+        "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю историю...",
+        "cfg_show_caption_tgs": "Показывать описание у загружаемых историй.",
         "no_url": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на трек Spotify.",
         "fetching": "<emoji document_id=6030657343744644592>🔄</emoji> Получаю данные...",
         "api_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}",
@@ -149,10 +173,16 @@ class MediaDownloaderMod(loader.Module):
             lambda: self.strings("auto_update_ch"),
             validator=loader.validators.Boolean(),
             )
+            loader.ConfigValue(
+                "show_caption",
+                True,
+                lambda: self.strings("cfg_show_caption_tgs"),
+                validator=loader.validators.Boolean(),
+            )            
         )
 
-    @loader.command(ru_doc="Скачать видео из TikTok\nИспользование: .tikload <ссылка>",
-                    en_doc="Download TikTok video\nUsage: .tikload <link>")
+    @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
+                    en_doc="Download TikTok video.\nUsage: .tikload <link>")
     async def tikloadcmd(self, message: Message):
         args = utils.get_args_raw(message)
         if not args:
@@ -231,13 +261,12 @@ class MediaDownloaderMod(loader.Module):
             author = data.get("author", "Unknown")
             username = data.get("username", "unknown")
             author_link = f"<a href='https://tiktok.com/@{username}'>{author}</a>"
-            url_fixed = f"<code>{url}</code>"
-            
+
             if self.config["show_tiktok_info"]:
                 caption_template = (
                     self.strings["tiktok_success_hd"] if quality == "hd" else self.strings["tiktok_success_sd"]
                 )
-                caption = caption_template.format(author_link, url_fixed)
+                caption = caption_template.format(author_link, url)
             else:
                 caption = (
                     self.strings["tiktok_success_minimal_hd"] if quality == "hd" else self.strings["tiktok_success_minimal_sd"]
@@ -254,8 +283,8 @@ class MediaDownloaderMod(loader.Module):
             )
             
     @loader.command(
-        ru_doc="Скачать трек с Spotify\nИспользование: .spot <ссылка>",
-        en_doc="Download Spotify track\nUsage: .spot <link>"
+        ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>",
+        en_doc="Download Spotify track.\nUsage: .spot <link>"
     )
     async def spotcmd(self, message: Message):
         args = utils.get_args_raw(message)
@@ -360,3 +389,94 @@ class MediaDownloaderMod(loader.Module):
                 parse_mode='HTML',
                 voice_note=False,
             )
+
+    @loader.command(
+        ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <username> <story_number>",
+        en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>"
+    async def tgsloadcmd(self, message):
+        args = utils.get_args_raw(message)
+        if not args:
+            await utils.answer(message, self.strings("no_args_tgs"))
+            return
+
+        parts = args.strip().split()
+        if len(parts) != 2:
+            await utils.answer(message, self.strings("invalid_format_tgs"))
+            return
+
+        username = parts[0].lstrip('@')
+        try:
+            user_index = int(parts[1])
+            if user_index <= 0:
+                raise ValueError
+            index = user_index - 1
+        except ValueError:
+            await utils.answer(message, self.strings("invalid_number_tgs"))
+            return
+
+        api_url = f"https://telegram-story.apis-bj-devs.workers.dev/?username={username}&action=archive"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"HTTP {resp.status}")
+                    data = await resp.json()
+        except Exception as e:
+            await utils.answer(message, self.strings("api_error_tgs").format(error=e))
+            return
+
+        if not data.get("status") or "result" not in data or "stories" not in data["result"]:
+            await utils.answer(message, self.strings("no_stories_tgs"))
+            return
+
+        stories = data["result"]["stories"]
+        if not stories:
+            await utils.answer(message, self.strings("no_stories_tgs"))
+            return
+
+        if index < 0 or index >= len(stories):
+            await utils.answer(message, self.strings("invalid_index_tgs").format(max_index=len(stories)))
+            return
+
+        story = stories[index]
+        url = story.get("url")
+        caption = story.get("caption")
+
+        if not url:
+            await utils.answer(message, self.strings("no_url_tgs"))
+            return
+
+        downloading_message = await utils.answer(message, self.strings("downloading_tgs"))
+
+        parsed_url = urlparse(url)
+        file_extension = os.path.splitext(parsed_url.path)[1]
+        if not file_extension:
+            file_extension = '.mp4'  # Def NoExstension
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"HTTP {resp.status}")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+                        tmp_file.write(await resp.read())
+                        tmp_file_path = tmp_file.name
+        except Exception as e:
+            await utils.answer(message, self.strings("download_error_tgs").format(error=e))
+            return
+
+        try:
+            if self.config["show_caption"] and caption:
+                caption_text = self.strings("success_tgs").format(caption=caption)
+            else:
+                caption_text = self.strings("success_no_caption_tgs")
+
+            await message.client.send_file(
+                message.chat_id,
+                tmp_file_path,
+                caption=caption_text,
+                reply_to=downloading_message.id
+            )
+        finally:
+            os.remove(tmp_file_path)              
