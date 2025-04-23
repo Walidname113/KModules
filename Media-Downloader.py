@@ -392,7 +392,7 @@ class MediaDownloaderMod(loader.Module):
 
     @loader.command(
         ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <username> <story_number>",
-        en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>"
+        en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>")
     async def tgsloadcmd(self, message):
         args = utils.get_args_raw(message)
         if not args:
