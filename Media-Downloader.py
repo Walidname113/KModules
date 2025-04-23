@@ -17,7 +17,7 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 import asyncio
 
-mversion = "v1.0.0"
+mversion = "v1.0.1"
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
@@ -231,12 +231,13 @@ class MediaDownloaderMod(loader.Module):
             author = data.get("author", "Unknown")
             username = data.get("username", "unknown")
             author_link = f"<a href='https://tiktok.com/@{username}'>{author}</a>"
-
+            url_fixed = f"<code>{url}</code>"
+            
             if self.config["show_tiktok_info"]:
                 caption_template = (
                     self.strings["tiktok_success_hd"] if quality == "hd" else self.strings["tiktok_success_sd"]
                 )
-                caption = caption_template.format(author_link, url)
+                caption = caption_template.format(author_link, url_fixed)
             else:
                 caption = (
                     self.strings["tiktok_success_minimal_hd"] if quality == "hd" else self.strings["tiktok_success_minimal_sd"]
