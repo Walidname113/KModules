@@ -172,7 +172,7 @@ class MediaDownloaderMod(loader.Module):
             "auto_update", True,
             lambda: self.strings("auto_update_ch"),
             validator=loader.validators.Boolean(),
-            )
+            ),
             loader.ConfigValue(
                 "show_caption",
                 True,
