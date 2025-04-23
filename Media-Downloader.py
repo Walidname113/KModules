@@ -15,6 +15,7 @@ import os
 import tempfile
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
+import asyncio
 
 mversion = "v1.0.0"
 
