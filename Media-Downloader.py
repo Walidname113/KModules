@@ -16,6 +16,7 @@ import tempfile
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
+import asyncio
 
 mversion = "v1.0.3"
 
