@@ -22,7 +22,7 @@ mversion = "v1.0.3"
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.2"""
+    """👑 Multimedia Loader v1.0.3"""
 
     strings = {
         "name": "Media-Downloader",
