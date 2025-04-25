@@ -18,7 +18,7 @@ from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
 import asyncio
 
-mversion = "v1.0.3"
+mversion = "v1.0.4"
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
@@ -37,7 +37,7 @@ class MediaDownloaderMod(loader.Module):
         "image_error": "<emoji document_id=5278578973595427038>🚫</emoji> Error downloading cover image. Status: {}",
         "file_error": "<emoji document_id=5278578973595427038>🚫</emoji> File download error: {}",
         "tag_error": "<emoji document_id=5278578973595427038>🚫</emoji> Error embedding cover: {}",
-        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Track successfully downloaded!\n🔗 <code>{}</code>",
+        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Track successfully downloaded!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
         "done_caption_minimal": "<emoji document_id=5316653334688446735>✅</emoji> Track downloaded!",
         "no_tiktok_url": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a TikTok video URL.",
         "tiktok_api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Failed to get video data.",
@@ -45,8 +45,8 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> No suitable videos found for download.",
         "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading HD video...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading video...",
-        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Video successfully downloaded!\n🎬 Author: {}\n🔗 <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Video downloaded!\n🎬 Author: {}\n🔗 <code>{}</code>",
+        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Video successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Video downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Video downloaded!",
         "tiktok_success_minimal_sd": "<emoji document_id=5316653334688446735>✅</emoji> Video downloaded!",
         "cfg_show_tiktok_info": "Show author and link for TikTok message caption.",
@@ -92,7 +92,7 @@ class MediaDownloaderMod(loader.Module):
         "image_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при скачивании обложки. Статус: {}",
         "file_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при скачивании файлов: {}",
         "tag_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при добавлении обложки: {}",
-        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Трек успешно загружен!\n🔗 <code>{}</code>",
+        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Трек успешно загружен!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
         "done_caption_minimal": "<emoji document_id=5316653334688446735>✅</emoji> Трек успешно загружен!",
         "no_tiktok_url": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на видео TikTok.",
         "tiktok_api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Не удалось получить данные видео.",
@@ -100,8 +100,8 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> Не найдено подходящих видео для загрузки.",
         "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю HD видео...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю видео...",
-        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Видео успешно загружено!\n🎬 Автор: {}\n🔗 <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Видео загружено!\n🎬 Автор: {}\n🔗 <code>{}</code>",
+        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Видео загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Видео загружено!",
         "tiktok_success_minimal_sd": "<emoji document_id=5316653334688446735>✅</emoji> Видео загружено!",
         "cfg_show_tiktok_info": "Показывать автора и ссылку в TikTok.",
@@ -149,7 +149,7 @@ class MediaDownloaderMod(loader.Module):
                 f.write(new_code)
 
             print(f"{module_name} has been updated to version {latest_version}.")
-            
+
     def __init__(self):
         super().__init__()
         asyncio.create_task(self.check_for_updates())
@@ -282,7 +282,7 @@ class MediaDownloaderMod(loader.Module):
                 parse_mode='HTML',
                 video_note=False,
             )
-            
+
     @loader.command(
         ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>",
         en_doc="Download Spotify track.\nUsage: .spot <link>"
@@ -360,7 +360,7 @@ class MediaDownloaderMod(loader.Module):
                     audio.add_tags()
                 except Exception:
                     pass
-                
+
                 with open(img_path, 'rb') as albumart:
                     audio.tags.add(
                         APIC(
@@ -480,4 +480,4 @@ class MediaDownloaderMod(loader.Module):
                 reply_to=downloading_message.id
             )
         finally:
-            os.remove(tmp_file_path)              
+            os.remove(tmp_file_path)
