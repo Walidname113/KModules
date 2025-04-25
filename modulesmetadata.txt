@@ -1,2 +1,2 @@
-Media-Downloader: v1.0.3
+Media-Downloader: v1.0.4
 URL-Scanner: v1.0.0
