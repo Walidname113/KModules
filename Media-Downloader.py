@@ -6,6 +6,9 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
+# scope: hikka_only
+# scope: hikka_min 1.6.2
+# requires: aiohttp mutagen
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 
 from hikkatl.types import Message
@@ -17,12 +20,18 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
 import asyncio
+import re
 
-mversion = "v1.0.4"
+mversion = "v1.0.5"
+
+LINK_PATTERN = re.compile(
+    r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
+    flags=re.IGNORECASE
+)
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.4"""
+    """👑 Multimedia Loader v1.0.5"""
 
     strings = {
         "name": "Media-Downloader",
@@ -31,24 +40,24 @@ class MediaDownloaderMod(loader.Module):
         "api_error": "<emoji document_id=5278578973595427038>🚫</emoji> API request failed. Status: {}",
         "api_exception": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {}",
         "api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Failed to get track data.",
-        "invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Invalid API data. downloadLink: {}, imgUrl: {}",
+        "invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Invalid API data.",
         "downloading": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading track...",
         "download_error": "<emoji document_id=5278578973595427038>🚫</emoji> Error downloading track. Status: {}",
         "image_error": "<emoji document_id=5278578973595427038>🚫</emoji> Error downloading cover image. Status: {}",
         "file_error": "<emoji document_id=5278578973595427038>🚫</emoji> File download error: {}",
         "tag_error": "<emoji document_id=5278578973595427038>🚫</emoji> Error embedding cover: {}",
-        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Track successfully downloaded!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "done_caption_minimal": "<emoji document_id=5316653334688446735>✅</emoji> Track downloaded!",
+        "done_caption": "<emoji document_id=5318760565902947324>✅</emoji> Track successfully downloaded!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "done_caption_minimal": "<emoji document_id=5318760565902947324>✅</emoji> Track succesfully downloaded!",
         "no_tiktok_url": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a TikTok video URL.",
         "tiktok_api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Failed to get video data.",
         "tiktok_invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Invalid TikTok API data.",
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> No suitable videos found for download.",
-        "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading HD video...",
+        "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> video...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading video...",
-        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Video successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Video downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_minimal_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Video downloaded!",
-        "tiktok_success_minimal_sd": "<emoji document_id=5316653334688446735>✅</emoji> Video downloaded!",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video succesfully downloaded!",
+        "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!",
         "cfg_show_tiktok_info": "Show author and link for TikTok message caption.",
         "cfg_show_spotify_link": "Show link for Spotify caption message.",
         "cfg_force_hd": "Always download HD (if available).",
@@ -61,10 +70,11 @@ class MediaDownloaderMod(loader.Module):
         "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Invalid story number. Available range: 1 - {max_index}",
         "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> The selected story has no URL.",
         "download_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Error downloading the file: {error}",
-        "success_tgs": "<emoji document_id=5316653334688446735>✅</emoji> Story downloaded successfully!\nStory caption: {caption}",
-        "success_no_caption_tgs": "<emoji document_id=5316653334688446735>✅</emoji> Story downloaded successfully!",
+        "success_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Story downloaded successfully!\n<emoji document_id=6039451237743595514>📎</emoji> <b>Story caption:</b> {caption}",
+        "success_no_caption_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Story downloaded successfully!",
         "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading story...",
         "cfg_show_caption_tgs": "Display captions for downloaded stories.",
+        "cfg_filter_links": "Filter out links in story captions.",
     }
 
     strings_ru = {
@@ -77,8 +87,8 @@ class MediaDownloaderMod(loader.Module):
         "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Неверный номер истории. Доступный диапазон: 1 - {max_index}",
         "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> У выбранной истории отсутствует URL.",
         "download_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при загрузке файла: {error}",
-        "success_tgs": "<emoji document_id=5316653334688446735>✅</emoji> История успешно загружена!\nОписание: {caption}",
-        "success_no_caption_tgs": "<emoji document_id=5316653334688446735>✅</emoji> История успешно загружена!",
+        "success_tgs": "<emoji document_id=5318760565902947324>✅</emoji> История успешно загружена!\n<emoji document_id=6039451237743595514>📎</emoji> <b>Описание:</b> {caption}",
+        "success_no_caption_tgs": "<emoji document_id=5318760565902947324>✅</emoji> История успешно загружена!",
         "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю историю...",
         "cfg_show_caption_tgs": "Показывать описание у загружаемых историй.",
         "no_url": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на трек Spotify.",
@@ -86,28 +96,29 @@ class MediaDownloaderMod(loader.Module):
         "api_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}",
         "api_exception": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API: {}",
         "api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Не удалось получить данные трека.",
-        "invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Неверные данные от API. downloadLink: {}, imgUrl: {}",
+        "invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Неверные данные от API.",
         "downloading": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю трек...",
         "download_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при скачивании трека. Статус: {}",
         "image_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при скачивании обложки. Статус: {}",
         "file_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при скачивании файлов: {}",
         "tag_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при добавлении обложки: {}",
-        "done_caption": "<emoji document_id=5316653334688446735>✅</emoji> Трек успешно загружен!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "done_caption_minimal": "<emoji document_id=5316653334688446735>✅</emoji> Трек успешно загружен!",
+        "done_caption": "<emoji document_id=5318760565902947324>✅</emoji> Трек успешно загружен!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "done_caption_minimal": "<emoji document_id=5318760565902947324>✅</emoji> Трек успешно загружен!",
         "no_tiktok_url": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на видео TikTok.",
         "tiktok_api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Не удалось получить данные видео.",
         "tiktok_invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Некорректные данные от TikTok API.",
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> Не найдено подходящих видео для загрузки.",
-        "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю HD видео...",
+        "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю <b>HD</b> видео...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю видео...",
-        "tiktok_success_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5316653334688446735>✅</emoji> Видео загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_minimal_hd": "<emoji document_id=5316653334688446735>✅</emoji> [HD] Видео загружено!",
-        "tiktok_success_minimal_sd": "<emoji document_id=5316653334688446735>✅</emoji> Видео загружено!",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!",
+        "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!",
         "cfg_show_tiktok_info": "Показывать автора и ссылку в TikTok.",
         "cfg_show_spotify_link": "Показывать ссылку в Spotify.",
-        "cfg_force_hd": "Всегда загружать HD (если доступно).",
+        "cfg_force_hd": "Всегда загружать видео в HD (если доступно).",
         "auto_update_ch": "Автообновлять модуль при новых версиях.",
+        "cfg_filter_links": "Фильтровать ли ссылки в описаниях к историям при их загрузке.",
     }
 
     async def check_for_updates(self):
@@ -148,7 +159,7 @@ class MediaDownloaderMod(loader.Module):
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
-            print(f"{module_name} has been updated to version {latest_version}.")
+            self.log.info(f"{module_name} has been updated to version {latest_version}.")
 
     def __init__(self):
         super().__init__()
@@ -179,7 +190,12 @@ class MediaDownloaderMod(loader.Module):
                 True,
                 lambda: self.strings("cfg_show_caption_tgs"),
                 validator=loader.validators.Boolean(),
-            )            
+            ),
+            loader.ConfigValue(
+                "filter_links", False,
+                lambda: self.strings("cfg_filter_links"),
+                validator=loader.validators.Boolean(),
+            ),            
         )
 
     @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
@@ -469,6 +485,8 @@ class MediaDownloaderMod(loader.Module):
 
         try:
             if self.config["show_caption"] and caption:
+                if self.config["filter_links"] and caption:
+                    caption = LINK_PATTERN.sub("", caption).strip()
                 caption_text = self.strings("success_tgs").format(caption=caption)
             else:
                 caption_text = self.strings("success_no_caption_tgs")
