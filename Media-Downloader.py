@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import asyncio
 import re
 
-mversion = "v1.0.5"
+mversion = "v1.0.6"
 
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
@@ -31,7 +31,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.5"""
+    """👑 Multimedia Loader v1.0.6"""
 
     strings = {
         "name": "Media-Downloader",
@@ -208,7 +208,7 @@ class MediaDownloaderMod(loader.Module):
 
         url = args.strip()
         api_url = f"https://tiktok-downloader.apis-bj-devs.workers.dev?url={url}"
-        await utils.answer(message, self.strings["fetching"])
+      # await utils.answer(message, self.strings["fetching"])
 
         data = None
         try:
@@ -311,7 +311,7 @@ class MediaDownloaderMod(loader.Module):
 
         user_url = args.strip()
         api_url = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={user_url}"
-        await utils.answer(message, self.strings["fetching"])
+      # await utils.answer(message, self.strings["fetching"])
 
         async with aiohttp.ClientSession() as session:
             try:
