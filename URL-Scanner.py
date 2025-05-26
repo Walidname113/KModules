@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.0"
+mversion = "v1.0.1"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -140,7 +140,7 @@ class UrlScanMod(loader.Module):
             await utils.answer(message, self.strings("no_api"))
             return
 
-        await utils.answer(message, self.strings("sending"))
+       # await utils.answer(message, self.strings("sending"))
 
         headers = {
             "API-Key": api_key,
