@@ -114,9 +114,9 @@ class UrlScanMod(loader.Module):
     def __init__(self):
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
-                "api_key",
-                None,
-                lambda: self.strings("cfg_api_key")
+                "api_key", None,
+                lambda: self.strings("cfg_api_key"),
+                validator=loader.validators.String()
             ),
             loader.ConfigValue(
                 "auto_update", True,
