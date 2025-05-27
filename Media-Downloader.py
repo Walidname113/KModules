@@ -23,7 +23,8 @@ import asyncio
 import re
 import sys
 import os
-import pathlib
+from pathlib import Path
+
 mversion = "v1.0.9"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
