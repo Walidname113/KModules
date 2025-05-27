@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.1"
+mversion = "v1.0.2"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -115,13 +115,13 @@ class UrlScanMod(loader.Module):
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "api_key", None,
-                lambda: self.strings("cfg_api_key"),
-                validator=loader.validators.String()
+                doc=lambda: self.strings("cfg_api_key"),
+                validator=loader.validators.Hidden(loader.validators.String())
             ),
             loader.ConfigValue(
                 "auto_update", True,
-                lambda: self.strings("auto_update_ch"),
-                validator=loader.validators.Boolean(),
+                doc=lambda: self.strings("auto_update_ch"),
+                validator=loader.validators.Boolean()
             )            
         )
 
