@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import asyncio
 import re
 
-mversion = "v1.0.6"
+mversion = "v1.0.7"
 
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
@@ -31,7 +31,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.6"""
+    """👑 Multimedia Loader v1.0.7"""
 
     strings = {
         "name": "Media-Downloader",
@@ -167,33 +167,33 @@ class MediaDownloaderMod(loader.Module):
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "show_tiktok_info", True,
-                lambda: self.strings("cfg_show_tiktok_info"),
+                doc=lambda: self.strings("cfg_show_tiktok_info"),
                 validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
                 "show_spotify_link", True,
-                lambda: self.strings("cfg_show_spotify_link"),
+                doc=lambda: self.strings("cfg_show_spotify_link"),
                 validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
                 "force_hd", True,
-                lambda: self.strings("cfg_force_hd"),
+                doc=lambda: self.strings("cfg_force_hd"),
                 validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
-            "auto_update", True,
-            lambda: self.strings("auto_update_ch"),
-            validator=loader.validators.Boolean(),
+                "auto_update", True,
+                doc=lambda: self.strings("auto_update_ch"),
+                validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
                 "show_caption",
                 True,
-                lambda: self.strings("cfg_show_caption_tgs"),
+                doc=lambda: self.strings("cfg_show_caption_tgs"),
                 validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
                 "filter_links", False,
-                lambda: self.strings("cfg_filter_links"),
+                doc=lambda: self.strings("cfg_filter_links"),
                 validator=loader.validators.Boolean(),
             ),            
         )
