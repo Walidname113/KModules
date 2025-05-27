@@ -21,9 +21,10 @@ from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
 import asyncio
 import re
-
-mversion = "v1.0.8"
-
+import sys
+import os
+import pathlib
+mversion = "v1.0.9"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
@@ -31,7 +32,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.8"""
+    """👑 Multimedia Loader v1.0.9"""
 
     strings = {
         "name": "Media-Downloader",
@@ -155,7 +156,7 @@ class MediaDownloaderMod(loader.Module):
             except Exception:
                 return
 
-            module_path = __file__
+            module_path = Path(__file__ if '__file__' in globals() else sys.modules[__name__].__file__ if hasattr(sys.modules.get(__name__), '__file__') else os.getcwd()).resolve()
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
