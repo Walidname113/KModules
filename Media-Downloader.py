@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import asyncio
 import re
 
-mversion = "v1.0.7"
+mversion = "v1.0.8"
 
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
@@ -31,7 +31,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.7"""
+    """👑 Multimedia Loader v1.0.8"""
 
     strings = {
         "name": "Media-Downloader",
@@ -159,8 +159,6 @@ class MediaDownloaderMod(loader.Module):
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
-            self.log.info(f"{module_name} has been updated to version {latest_version}.")
-
     def __init__(self):
         super().__init__()
         asyncio.create_task(self.check_for_updates())
@@ -201,6 +199,7 @@ class MediaDownloaderMod(loader.Module):
     @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
                     en_doc="Download TikTok video.\nUsage: .tikload <link>")
     async def tikloadcmd(self, message: Message):
+        """This command downloads videos from TikTok."""
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings["no_tiktok_url"])
@@ -304,6 +303,7 @@ class MediaDownloaderMod(loader.Module):
         en_doc="Download Spotify track.\nUsage: .spot <link>"
     )
     async def spotcmd(self, message: Message):
+        """This command downloads music from Spotify."""        
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings["no_url"])
@@ -411,6 +411,7 @@ class MediaDownloaderMod(loader.Module):
         ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <username> <story_number>",
         en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>")
     async def tgsloadcmd(self, message):
+        """This command downloads a Telegram story."""
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings("no_args_tgs"))
