@@ -21,11 +21,8 @@ from mutagen.id3 import ID3, APIC
 from urllib.parse import urlparse
 import asyncio
 import re
-import sys
-import os
-from pathlib import Path
 
-mversion = "v1.0.9"
+mversion = "v1.1.0"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
@@ -33,7 +30,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.0.9"""
+    """👑 Multimedia Loader v1.1.0"""
 
     strings = {
         "name": "Media-Downloader",
@@ -124,6 +121,10 @@ class MediaDownloaderMod(loader.Module):
     }
 
     async def check_for_updates(self):
+        import os
+        import sys
+        from pathlib import Path
+
         if not self.config.get("auto_update", True):
             return
 
@@ -157,7 +158,21 @@ class MediaDownloaderMod(loader.Module):
             except Exception:
                 return
 
-            module_path = Path(__file__ if '__file__' in globals() else sys.modules[__name__].__file__ if hasattr(sys.modules.get(__name__), '__file__') else os.getcwd()).resolve()
+            module_path = None
+            try:
+                module_path = Path(__file__).resolve()
+            except NameError:
+                module_path = getattr(sys.modules.get(__name__), '__file__', None)
+                if module_path:
+                    module_path = Path(module_path).resolve()
+                else:
+                    cwd = Path(os.getcwd())
+                    candidates = list(cwd.glob('*MediaDownloaderMod*.py'))
+                    if candidates:
+                        module_path = candidates[0].resolve()
+                    else:
+                        module_path = cwd / f"{module_name.replace(' ', '')}.py"
+
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
