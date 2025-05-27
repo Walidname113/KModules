@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.2"
+mversion = "v1.0.3"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -130,6 +130,7 @@ class UrlScanMod(loader.Module):
         en_doc="Scans a URL via urlscan.io and returns details (screenshot, metadata, verdicts, etc)."
     )
     async def scancmd(self, message):
+        """This command scans urls."""
         url = utils.get_args_raw(message)
         if not url:
             await utils.answer(message, self.strings("no_url"))
