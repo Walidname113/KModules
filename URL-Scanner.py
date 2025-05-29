@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.3"
+mversion = "v1.0.4"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -26,7 +26,7 @@ class UrlScanMod(loader.Module):
         "waiting": "<emoji document_id=5188180658022808525>⏳</emoji> Waiting for results...",
         "error": "<emoji document_id=5463278866724298027>❌</emoji> Error: <code>{err}</code>",
         "caption": (
-            "<emoji document_id=5472038559898672363>😎</emoji> <i><b>Result get!</b></i>\n\n"
+            "<blockquote><emoji document_id=5472038559898672363>😎</emoji> <i><b>Result get!</b></i></blockquote>\n\n"
             "<emoji document_id=5278305362703835500>🔗</emoji> <b>URL:</b> {url}\n"
             "<emoji document_id=5278589204207528856>📨</emoji> <b>Title:</b> {title}\n"
             "<emoji document_id=5276314275994954605>🔨</emoji> <b>Domain:</b> {domain}\n"
@@ -39,7 +39,7 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS From:</b> <code>{tls_valid_from}</code>\n"
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS Days:</b> {tls_valid_days}\n"
             "<emoji document_id=5276463156741296548>🧐</emoji> <b>Suspicious:</b> {malicious}\n"
-            "<emoji document_id=5273946310200809961>😉</emoji> <b>Result:</b> <a href=\"{result_url}\">{result_url}</a>"
+            "<emoji document_id=5273946310200809961>😉</emoji> <b>Result:</b> <a href=\"{result_url}\">tap</a>"
         ),
         "auto_update_ch": "Auto-update(?) the module when new versions are available.",
     }
@@ -53,7 +53,7 @@ class UrlScanMod(loader.Module):
         "waiting": "<emoji document_id=5188180658022808525>⏳</emoji> Ожидаю результат...",
         "error": "<emoji document_id=5463278866724298027>❌</emoji> Ошибка: <code>{err}</code>",
         "caption": (
-            "<emoji document_id=5472038559898672363>😎</emoji> <i><b>Результат получен!</b></i>\n\n"
+            "<blockquote><emoji document_id=5472038559898672363>😎</emoji> <i><b>Результат получен!</b></i></blockquote>\n\n"
             "<emoji document_id=5278305362703835500>🔗</emoji> <b>URL:</b> {url}\n"
             "<emoji document_id=5278589204207528856>📨</emoji> <b>Тайтл:</b> {title}\n"
             "<emoji document_id=5276314275994954605>🔨</emoji> <b>Домен:</b> {domain}\n"
@@ -66,7 +66,7 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS с:</b> <code>{tls_valid_from}</code>\n"
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS дней:</b> {tls_valid_days}\n"
             "<emoji document_id=5276463156741296548>🧐</emoji> <b>Подозрения:</b> {malicious}\n"
-            "<emoji document_id=5273946310200809961>😉</emoji> <b>Результат:</b> <a href=\"{result_url}\">{result_url}</a>"
+            "<emoji document_id=5273946310200809961>😉</emoji> <b>Результат:</b> <a href=\"{result_url}\">жмяк</a>"
         ),
         "auto_update_ch": "Автообновлять ли модуль при поступлении новых версий.",
     }
