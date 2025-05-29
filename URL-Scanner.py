@@ -75,7 +75,7 @@ class UrlScanMod(loader.Module):
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/main/modulesmetadata.txt"
+        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/heroku/modulesmetadata.txt"
         module_name = self.strings["name"]
         current_version = mversion
 
@@ -95,7 +95,7 @@ class UrlScanMod(loader.Module):
                 break
 
         if latest_version and latest_version != current_version:
-            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/main/{module_name.replace(' ', '')}.py"
+            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/heroku/{module_name.replace(' ', '')}.py"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(raw_module_url) as resp:
