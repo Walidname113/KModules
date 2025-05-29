@@ -10,7 +10,7 @@
 # requires: aiohttp mutagen
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 
-from herokutl.types import Message
+from hikkatl.types import Message
 from .. import loader, utils
 import aiohttp
 import os
