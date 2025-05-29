@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.3"
+mversion = "v1.0.4"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -39,7 +39,7 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS From:</b> <code>{tls_valid_from}</code>\n"
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS Days:</b> {tls_valid_days}\n"
             "<emoji document_id=5276463156741296548>🧐</emoji> <b>Suspicious:</b> {malicious}\n"
-            "<emoji document_id=5273946310200809961>😉</emoji> <b>Result:</b> <a href=\"{result_url}\">{result_url}</a>"
+            "<emoji document_id=5273946310200809961>😉</emoji> <b>Result:</b> <a href=\"{result_url}\">tap</a>"
         ),
         "auto_update_ch": "Auto-update(?) the module when new versions are available.",
     }
@@ -66,7 +66,7 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS с:</b> <code>{tls_valid_from}</code>\n"
             "<emoji document_id=5278753302023004775>ℹ️</emoji> <b>TLS дней:</b> {tls_valid_days}\n"
             "<emoji document_id=5276463156741296548>🧐</emoji> <b>Подозрения:</b> {malicious}\n"
-            "<emoji document_id=5273946310200809961>😉</emoji> <b>Результат:</b> <a href=\"{result_url}\">{result_url}</a>"
+            "<emoji document_id=5273946310200809961>😉</emoji> <b>Результат:</b> <a href=\"{result_url}\">жмяк</a>"
         ),
         "auto_update_ch": "Автообновлять ли модуль при поступлении новых версий.",
     }
