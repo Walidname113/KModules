@@ -6,7 +6,6 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
-# scope: hikka_min 1.6.2
 # requires: aiohttp mutagen
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 
