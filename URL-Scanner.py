@@ -6,13 +6,14 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
+# scope: hikka_only
 
 from .. import loader, utils
 import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.4"
+mversion = "v1.0.5"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -72,6 +73,10 @@ class UrlScanMod(loader.Module):
     }
 
     async def check_for_updates(self):
+        import os
+        import sys
+        from pathlib import Path
+
         if not self.config.get("auto_update", True):
             return
 
@@ -105,13 +110,27 @@ class UrlScanMod(loader.Module):
             except Exception:
                 return
 
-            module_path = __file__
+            module_path = None
+            try:
+                module_path = Path(__file__).resolve()
+            except NameError:
+                module_path = getattr(sys.modules.get(__name__), '__file__', None)
+                if module_path:
+                    module_path = Path(module_path).resolve()
+                else:
+                    cwd = Path(os.getcwd())
+                    candidates = list(cwd.glob('*UrlScanMod*.py'))
+                    if candidates:
+                        module_path = candidates[0].resolve()
+                    else:
+                        module_path = cwd / f"{module_name.replace(' ', '')}.py"
+
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
-            print(f"{module_name} has been updated to version {latest_version}.")
-
     def __init__(self):
+        super().__init__()
+        asyncio.create_task(self.check_for_updates())
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "api_key", None,
