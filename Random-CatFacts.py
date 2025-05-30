@@ -15,6 +15,8 @@ from .. import loader, utils
 from hikkatl.types import Message
 import asyncio
 
+mversion = "v1.0.0"
+
 @loader.tds
 class CatFacts(loader.Module):
     """The module will cover facts about felines."""
