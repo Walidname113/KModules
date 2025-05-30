@@ -26,7 +26,7 @@ class CatFactsH(loader.Module):
         "cfg_factslang": "Language of facts (rus, eng, ukr).",
         "error_fetch": "<emoji document_id=5278578973595427038>🚫</emoji> <i><b>Error fetching facts:</b></i> <code>{error}</code>.",
         "error_lang": "<emoji document_id=5278578973595427038>🚫</emoji> <i><b>Unsupported language code:</b></i> <code>{lang}</code>. | Supported langs:  <code>rus</code>, <code>eng</code>, <code>ukr</code>.",
-        "Autoupdate(?) module via new version."
+        "auto_update_ch": "Autoupdate(?) module via new version."
     }
 
     strings_ru = {
