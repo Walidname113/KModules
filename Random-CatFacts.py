@@ -6,7 +6,7 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # scope: hikka_only
-#scope: hikka_min 1.6.2
+# scope: hikka_min 1.6.2
 # requires: aiohttp
 # meta developer: @RenaYugen
 
