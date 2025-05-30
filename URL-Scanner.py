@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.4"
+mversion = "v1.0.5"
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -72,10 +72,14 @@ class UrlScanMod(loader.Module):
     }
 
     async def check_for_updates(self):
+        import os
+        import sys
+        from pathlib import Path
+
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/heroku/modulesmetadata.txt"
+        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/main/modulesmetadata.txt"
         module_name = self.strings["name"]
         current_version = mversion
 
@@ -95,7 +99,7 @@ class UrlScanMod(loader.Module):
                 break
 
         if latest_version and latest_version != current_version:
-            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/heroku/{module_name.replace(' ', '')}.py"
+            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/main/{module_name.replace(' ', '')}.py"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(raw_module_url) as resp:
@@ -105,13 +109,27 @@ class UrlScanMod(loader.Module):
             except Exception:
                 return
 
-            module_path = __file__
+            module_path = None
+            try:
+                module_path = Path(__file__).resolve()
+            except NameError:
+                module_path = getattr(sys.modules.get(__name__), '__file__', None)
+                if module_path:
+                    module_path = Path(module_path).resolve()
+                else:
+                    cwd = Path(os.getcwd())
+                    candidates = list(cwd.glob('*UrlScanMod*.py'))
+                    if candidates:
+                        module_path = candidates[0].resolve()
+                    else:
+                        module_path = cwd / f"{module_name.replace(' ', '')}.py"
+
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
 
-            print(f"{module_name} has been updated to version {latest_version}.")
-
     def __init__(self):
+        super().__init__()
+        asyncio.create_task(self.check_for_updates())
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "api_key", None,
