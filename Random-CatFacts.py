@@ -115,10 +115,11 @@ class CatFacts(loader.Module):
             ),
             loader.ConfigValue(
                 "auto_update", True,
-                doc=lambda: self.strings("auto_update_ch"),
-                validator=loader.validators.Boolean(),            
+                doc=lambda: self.strings["auto_update_ch"],
+                validator=loader.validators.Boolean()
+            )
         )
-        
+
     @loader.command(en_doc="| Some fact of a cats…", ru_doc="| Рандомный факт про котят…")
     async def catfactcmd(self, message: Message):
         count = self.config["factscount"]
