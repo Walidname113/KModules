@@ -6,6 +6,7 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
+__version__ = (1, 0, 5)
 
 from .. import loader, utils
 import aiohttp
