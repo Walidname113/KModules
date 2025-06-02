@@ -6,14 +6,14 @@
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
-__version__ = (1, 0, 5)
+__version__ = (1, 0, 6)
 
 from .. import loader, utils
 import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.5"
+mversion = "v1.0.6"
 
 @loader.tds
 class UrlScanMod(loader.Module):
