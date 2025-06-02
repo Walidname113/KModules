@@ -7,13 +7,14 @@
 # -------------------------------------------------
 # meta developer: @RenaYugen
 # scope: hikka_only
+__version__ = (1, 0, 6)
 
 from .. import loader, utils
 import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
 
-mversion = "v1.0.5"
+mversion = "v1.0.6"
 
 @loader.tds
 class UrlScanMod(loader.Module):
