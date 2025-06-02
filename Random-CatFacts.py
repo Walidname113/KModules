@@ -9,13 +9,14 @@
 # scope: hikka_min 1.6.2
 # requires: aiohttp
 # meta developer: @RenaYugen
+__version__ = (1, 0, 1)
 
 import aiohttp
 from .. import loader, utils
 from hikkatl.types import Message
 import asyncio
 
-mversion = "v1.0.0"
+mversion = "v1.0.1"
 
 @loader.tds
 class CatFacts(loader.Module):
