@@ -8,6 +8,7 @@
 # meta developer: @RenaYugen
 # requires: aiohttp mutagen
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
+__version__ = (1, 1, 1)
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -20,7 +21,7 @@ from urllib.parse import urlparse
 import asyncio
 import re
 
-mversion = "v1.1.0"
+mversion = "v1.1.1"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
@@ -28,7 +29,7 @@ LINK_PATTERN = re.compile(
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader v1.1.0"""
+    """👑 Multimedia Loader"""
 
     strings = {
         "name": "Media-Downloader",
