@@ -7,6 +7,7 @@
 # -------------------------------------------------
 # requires: aiohttp
 # meta developer: @RenaYugen
+__version__ = (1, 0, 0)
 
 import aiohttp
 from .. import loader, utils
