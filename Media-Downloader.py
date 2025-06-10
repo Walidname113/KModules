@@ -10,9 +10,9 @@
 # scope: hikka_min 1.6.2
 # requires: aiohttp mutagen python-ffmpeg
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
-# change-log: 1.1.2 change-log: Add new command <ytlh>, add logger, add change-log.
+# changelog: 1.1.3 change-log: Add _cls_doc translate, fix change-log.
 
-__version__ = (1, 1, 2)
+__version__ = (1, 1, 3)
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -27,7 +27,7 @@ import re
 import logging
 
 logger = logging.getLogger(__name__)
-mversion = "v1.1.2"
+mversion = "v1.1.3"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
@@ -88,7 +88,8 @@ class MediaDownloaderMod(loader.Module):
         "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a YouTube video link!",
         "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> No streams in allowed resolution! To fix, enter: .<code>fcfg Media-Downloader allow_high_res True</code>.",
         "config_allow_high_res": "Allow downloading >1080p60 | WARNING: If your device does not support more than 1080p, enabling this setting makes no sense.",
-        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>BETA version warning!</b>\n\nAll commands labeled <b>BETA/ALPHA/TEST</b> are potentially unstable. This means these commands may often cause errors, malfunction, or not work at all, and sometimes even <b>break the entire module</b>. If you want to avoid this, it is advised to stop using these commands and wait until they are stable. Beta versions are released only after testing, so errors causing total module failure are <b>almost always excluded</b>, but there is no guarantee they won’t occur."        
+        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>BETA version warning!</b>\n\nAll commands labeled <b>BETA/ALPHA/TEST</b> are potentially unstable. This means these commands may often cause errors, malfunction, or not work at all, and sometimes even <b>break the entire module</b>. If you want to avoid this, it is advised to stop using these commands and wait until they are stable. Beta versions are released only after testing, so errors causing total module failure are <b>almost always excluded</b>, but there is no guarantee they won’t occur.",
+        "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."        
     }
 
     strings_ru = {
@@ -141,7 +142,8 @@ class MediaDownloaderMod(loader.Module):
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> Нет доступных медиа",
         "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на YouTube видео!",           "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Нет потоков в разрешенном разрешении! Чтобы исправить, введите: .<code>fcfg Media-Downloader allow_high_res True</code>.",
         "config_allow_high_res": "Разрешить скачивание >1080p60 | WARNING: Если ваше устройство не поддерживает больше чем 1080р, смысла разрешать эту настройку нет.",
-        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Предупреждение о BETA-версиях!</b>\n\nВсе команды, которые имеют инициалы <b>BETA/ALPHA/TEST</b> — потенциально нестабильны. Это значит, что эти команды могут часто вызывать ошибки или неправильно работать, или вовсе не работать, а иногда и вообще <b>сломать работу всего модуля</b>. Если вы не хотите этого, советуется больше не использовать эти команды, и ждать пока они будут стабильно реализованы. Бета версии выходят только после их тестирования, так что ошибки по типу полной поломки модуля <b>почти всегда исключены</b>, но нету гарантии что их не будет."
+        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Предупреждение о BETA-версиях!</b>\n\nВсе команды, которые имеют инициалы <b>BETA/ALPHA/TEST</b> — потенциально нестабильны. Это значит, что эти команды могут часто вызывать ошибки или неправильно работать, или вовсе не работать, а иногда и вообще <b>сломать работу всего модуля</b>. Если вы не хотите этого, советуется больше не использовать эти команды, и ждать пока они будут стабильно реализованы. Бета версии выходят только после их тестирования, так что ошибки по типу полной поломки модуля <b>почти всегда исключены</b>, но нету гарантии что их не будет.",
+        "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."        
     }
 
     async def check_for_updates(self):
