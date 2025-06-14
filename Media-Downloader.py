@@ -1,18 +1,17 @@
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
-# This file is part of Media-Downloaer and is licensed under the GNU AGPLv3.
+# This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
 # See the LICENSE file in the root of the repository for full license text.
 # Original repository: https://github.com/Walidname113/KModules
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @RenaYugen
-# scope: hikka_only
-# scope: hikka_min 1.6.2
 # requires: aiohttp mutagen python-ffmpeg
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
-# changelog: 1.1.3 change-log: Add _cls_doc translate, fix change-log.
-
-__version__ = (1, 1, 3)
+# scope: hikka_only
+# scope: hikka_min 1.6.2
+# changelog: 1.1.4 change-log: Use logging, incomplete ytlh fix, added an additional parameter to the module config that prohibits/allows showing the video title after loading the video into the caption (with a built-in link to it). 
+__version__ = (1, 1, 4)
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -25,14 +24,19 @@ from urllib.parse import urlparse
 import asyncio
 import re
 import logging
+import errno
 
-logger = logging.getLogger(__name__)
-mversion = "v1.1.3"
+log = logging.getLogger(f"Media-Downloader")
+
+mversion = "v1.1.4"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
 )
 
+class ConnectionResetByPeer(Exception):
+    pass
+    
 @loader.tds
 class MediaDownloaderMod(loader.Module):
     """👑 Multimedia Loader"""
@@ -81,7 +85,8 @@ class MediaDownloaderMod(loader.Module):
         "cfg_filter_links": "Filter out links in story captions.",
         "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg is not installed on the system. Install it <a href='https://t.me/hikka_talks/631886'>via this link</a>.",
         "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> API error: <code>{}</code>.",
-        "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[BETA]</b> | <b>[HD]</b> Download successful!",
+        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!",
+        "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[May take a while]</b> | Uploading result...",
         "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Error: <code>{}</code>.",
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> No media available",
@@ -89,7 +94,10 @@ class MediaDownloaderMod(loader.Module):
         "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> No streams in allowed resolution! To fix, enter: .<code>fcfg Media-Downloader allow_high_res True</code>.",
         "config_allow_high_res": "Allow downloading >1080p60 | WARNING: If your device does not support more than 1080p, enabling this setting makes no sense.",
         "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>BETA version warning!</b>\n\nAll commands labeled <b>BETA/ALPHA/TEST</b> are potentially unstable. This means these commands may often cause errors, malfunction, or not work at all, and sometimes even <b>break the entire module</b>. If you want to avoid this, it is advised to stop using these commands and wait until they are stable. Beta versions are released only after testing, so errors causing total module failure are <b>almost always excluded</b>, but there is no guarantee they won’t occur.",
-        "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."        
+        "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Server closed connection (104). Possible solution: Enable blocking of video up to 1080p60 in module config (<code>allow_high_res</code>), if it does not help: check the speed of the Internet connection.",
+        "show_ytdlh_vname": "Show the title of a YouTube video when it is loaded?",
+        "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
+        "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."
     }
 
     strings_ru = {
@@ -136,14 +144,18 @@ class MediaDownloaderMod(loader.Module):
         "cfg_filter_links": "Фильтровать ли ссылки в описаниях к историям при их загрузке.",
         "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg не установлен в системе. Установите <a href='https://t.me/hikka_talks/631886'>по ссылке</a>.",
         "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка API: <code>{}</code>.",
-        "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[BETA]</b> | <b>[HD]</b> Загружено успешно!",
+        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!",
+        "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Может быть долго]</b> | Загружаю результат...",
         "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка: <code>{}</code>.",
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> Нет доступных медиа",
-        "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на YouTube видео!",           "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Нет потоков в разрешенном разрешении! Чтобы исправить, введите: .<code>fcfg Media-Downloader allow_high_res True</code>.",
+        "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на YouTube видео!",           "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Нет потоков в разрешенном разрешении! Чтобы исправить, введите: .<code>fcfg Media-Downloader allow_high_res True</code> <b>(Не всегда помогает)</b>.",
         "config_allow_high_res": "Разрешить скачивание >1080p60 | WARNING: Если ваше устройство не поддерживает больше чем 1080р, смысла разрешать эту настройку нет.",
-        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Предупреждение о BETA-версиях!</b>\n\nВсе команды, которые имеют инициалы <b>BETA/ALPHA/TEST</b> — потенциально нестабильны. Это значит, что эти команды могут часто вызывать ошибки или неправильно работать, или вовсе не работать, а иногда и вообще <b>сломать работу всего модуля</b>. Если вы не хотите этого, советуется больше не использовать эти команды, и ждать пока они будут стабильно реализованы. Бета версии выходят только после их тестирования, так что ошибки по типу полной поломки модуля <b>почти всегда исключены</b>, но нету гарантии что их не будет.",
-        "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."        
+        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Предупреждение о BETA-версиях!</b>\n\n<blockquote>Все команды, которые имеют инициалы <b>BETA/ALPHA/TEST</b> — потенциально нестабильны. Это значит, что эти команды могут часто вызывать ошибки или неправильно работать, или вовсе не работать, а иногда и вообще <b>сломать работу всего модуля</b>. Если вы не хотите этого, советуется больше не использовать эти команды, и ждать пока они будут стабильно реализованы. Бета версии выходят только после их тестирования, так что ошибки по типу полной поломки модуля <b>почти всегда исключены</b>, но нету гарантии что их не будет.</blockquote>",
+        "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Сервер закрыл соединение (104). Возможные решения: Включить блокировку максимального качества загрузки видео в 1080р60 в конфиге модуля (<code>allow_high_res</code>), если не помогает, то проверить скорость интернета. Скорее всего, видео слишком долгое/качественное, от чего занимает слишком много места.",
+        "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
+        "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
+        "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
 
     async def check_for_updates(self):
@@ -154,7 +166,7 @@ class MediaDownloaderMod(loader.Module):
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/hikka/modulesmetadata.txt"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/modulesmetadata.txt"
         module_name = self.strings["name"]
         current_version = mversion
 
@@ -174,7 +186,8 @@ class MediaDownloaderMod(loader.Module):
                 break
 
         if latest_version and latest_version != current_version:
-            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/hikka/{module_name.replace(' ', '')}.py"
+            log.info("New version detected, updating...")
+            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/heroku/{module_name.replace(' ', '')}.py"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(raw_module_url) as resp:
@@ -201,7 +214,25 @@ class MediaDownloaderMod(loader.Module):
 
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
+                log.info(f"Module succesfully updated to {latest_version}, needed restart the userbot.")
 
+    def catch_connection_reset(func):
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                cause = getattr(e, "__cause__", None)
+                context = getattr(e, "__context__", None)
+
+                if isinstance(e, ConnectionResetError) or \
+                   isinstance(cause, ConnectionResetError) or \
+                   isinstance(context, ConnectionResetError) or \
+                   "Connection reset by peer" in str(e) or "104" in str(e):
+                    raise ConnectionResetByPeer("server return 104 ERROR.")
+
+                raise
+        return wrapper                
+                                                
     async def _check_ffmpeg(self):
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg",
@@ -212,11 +243,13 @@ class MediaDownloaderMod(loader.Module):
         await proc.communicate()
         return proc.returncode == 0
 
+    @catch_connection_reset
     async def _fetch_json(self, session, url, params=None):
         async with session.get(url, params=params) as resp:
             resp.raise_for_status()
             return await resp.json()
-
+                
+    @catch_connection_reset                    
     async def _download_file(self, session, url, filename):
         async with session.get(url) as resp:
             resp.raise_for_status()
@@ -287,17 +320,23 @@ class MediaDownloaderMod(loader.Module):
                 "filter_links", False,
                 doc=lambda: self.strings("cfg_filter_links"),
                 validator=loader.validators.Boolean(),
-            ),
+            ),            
             loader.ConfigValue(
                 "allow_high_res",
                 False,
                 doc=lambda: self.strings("config_allow_high_res"),
                 validator=loader.validators.Boolean()
-            )            
+            ),
+            loader.ConfigValue(
+            "show_ytname",
+            False,
+            doc=lambda: self.strings("show_ytdlh_vname"),
+            validator=loader.validators.Boolean()
+            )
         )
-
-    @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
-                    en_doc="Download TikTok video.\nUsage: .tikload <link>")
+        
+    @loader.command(ru_doc=f"Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
+                    en_doc=f"Download TikTok video.\nUsage: .tikload <link>")
     async def tikloadcmd(self, message: Message):
         """This command downloads videos from TikTok."""
         args = utils.get_args_raw(message)
@@ -603,7 +642,7 @@ class MediaDownloaderMod(loader.Module):
 
     @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.", ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <link>.")
     async def ytlhcmd(self, message: Message):
-        """<ссылка> - Скачать YouTube видео."""
+        """Load YouTube video as link."""
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings("yargs"))
@@ -619,14 +658,15 @@ class MediaDownloaderMod(loader.Module):
         video_file, audio_file, output_file = None, None, None
         
         try:
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=2000)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 data = await self._fetch_json(session, API_URL, {"url": args})
                 
                 if not data.get("success"):
                     error_msg = data.get("error", "Unknown error")
                     await utils.answer(m, self.strings("yapi_error").format(error_msg))
                     return
-                
+                    
                 medias = data.get("medias", [])
                 if not medias:
                     await utils.answer(m, self.strings("yno_media"))
@@ -665,30 +705,42 @@ class MediaDownloaderMod(loader.Module):
                     audio_streams,
                     key=lambda x: x.get("bitrate", 0)
                 )
-                
+                ytitle = data.get("title")
+                yurl = data.get("url")
                 title = "".join(c for c in data["title"] if c.isalnum() or c in " _-")
                 video_file = f"{title}_video.{video_stream.get('ext', 'mp4')}"
                 audio_file = f"{title}_audio.{audio_stream.get('ext', 'm4a')}"
                 output_file = f"{title}.mp4"
-                
                 await self._download_file(session, video_stream["url"], video_file)
                 await self._download_file(session, audio_stream["url"], audio_file)
                 
                 retcode = await self._merge_video_audio(video_file, audio_file, output_file)
                 
                 if retcode != 0:
-                    raise RuntimeError(f"FFmpeg вернул код ошибки: {retcode}")
-                
-                await message.client.send_file(
+                    log.error(f"FFmpeg back code err: {retcode}.")
+                    await utils.answer(m, self.strings("ffmpeg_berror").format(retcode=retcode))
+                    
+                if not self.config["show_ytname"]:
+                    await message.client.send_file(
                     message.peer_id,
                     output_file,
-                    caption=self.strings("ysuccess"),
+                    caption=self.strings("ysuccessm"),
                     reply_to=message.reply_to_msg_id
-                )
+                    )
+                else:
+                    await message.client.send_file(
+                    message.peer_id,
+                    output_file,
+                    caption=self.strings("ysuccess").format(ytitle=ytitle, yurl=yurl),
+                    reply_to = message.reply_to_msg_id
+                    )
                 await m.delete()
-        
+        except ConnectionResetByPeer as e:
+            log.error(f"YTLH error: {e} (104).")
+            await utils.answer(m, self.strings["econnreset"])
+    
         except Exception as e:
-            logger.exception("YTDL error")
+            log.error(f"YTLH error: {e}")
             await utils.answer(m, self.strings("yerror").format(str(e)))
         
         finally:
@@ -699,7 +751,7 @@ class MediaDownloaderMod(loader.Module):
                     except:
                         pass
 
-    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.")
-    async def whybetavcmd(self, m: Message):
-        """BETA WARNING MESSAGE"""
-        await utils.answer(m, self.strings("whybeta"))
+#    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.")
+#    async def whybetavcmd(self, m: Message):
+#        """BETA WARNING MESSAGE"""
+#        await utils.answer(m, self.strings("whybeta"))
