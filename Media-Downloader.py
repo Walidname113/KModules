@@ -329,10 +329,10 @@ class MediaDownloaderMod(loader.Module):
                 validator=loader.validators.Boolean()
             ),
             loader.ConfigValue(
-            "show_ytname",
-            False,
-            doc=lambda: self.strings("show_ytdlh_vname"),
-            validator=loader.validators.Boolean()
+                "show_ytname",
+                False,
+                doc=lambda: self.strings("show_ytdlh_vname"),
+                validator=loader.validators.Boolean()
             )
         )
         
