@@ -1,3 +1,4 @@
+__version__ = (1, 1, 5)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -10,8 +11,7 @@
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.1.4 change-log: Use logging, incomplete ytlh fix, added an additional parameter to the module config that prohibits/allows showing the video title after loading the video into the caption (with a built-in link to it). 
-__version__ = (1, 1, 4)
+# changelog: 1.1.5 change-log: Making it easier to support and update the module in the future, fixing a bug with an eternal update cycle (test).
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -28,7 +28,6 @@ import errno
 
 log = logging.getLogger(f"Media-Downloader")
 
-mversion = "v1.1.4"
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
     flags=re.IGNORECASE
@@ -158,65 +157,65 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
-
+    
     async def check_for_updates(self):
-        import os
-        import sys
-        from pathlib import Path
-
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/modulesmetadata.txt"
-        module_name = self.strings["name"]
-        current_version = mversion
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/MediaDownloaderMod.py"
+
+        import sys
+        import inspect
+        from pathlib import Path
+
+        module = sys.modules[__name__]
+        sys_module = inspect.getmodule(module)
+
+        try:
+            local_version = ".".join(map(str, sys_module.__version__))
+        except Exception:
+            log.warning("Local version not found in __version__")
+            return
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(metadata_url) as resp:
                     if resp.status != 200:
                         return
-                    text = await resp.text()
+                    remote_text = await resp.text()
         except Exception:
             return
 
-        latest_version = None
-        for line in text.splitlines():
-            if line.startswith(f"{module_name}:"):
-                latest_version = line.split(":", 1)[1].strip()
-                break
+        remote_lines = remote_text.splitlines()
+        try:
+            first_line = remote_lines[0]
+            if "__version__" not in first_line:
+                return
+            version_part = first_line.split("=", 1)[1].strip()
+            remote_version = version_part.strip("()").replace(",", "").replace(" ", ".")
+        except Exception:
+            return
 
-        if latest_version and latest_version != current_version:
+        if remote_version != local_version:
             log.info("New version detected, updating...")
-            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/heroku/{module_name.replace(' ', '')}.py"
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(raw_module_url) as resp:
+                    async with session.get(metadata_url) as resp:
                         if resp.status != 200:
                             return
                         new_code = await resp.text()
             except Exception:
                 return
 
-            module_path = None
             try:
-                module_path = Path(__file__).resolve()
-            except NameError:
-                module_path = getattr(sys.modules.get(__name__), '__file__', None)
-                if module_path:
-                    module_path = Path(module_path).resolve()
-                else:
-                    cwd = Path(os.getcwd())
-                    candidates = list(cwd.glob('*MediaDownloaderMod*.py'))
-                    if candidates:
-                        module_path = candidates[0].resolve()
-                    else:
-                        module_path = cwd / f"{module_name.replace(' ', '')}.py"
+                module_path = Path(sys_module.__file__).resolve()
+            except Exception:
+                return
 
             with open(module_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
-                log.info(f"Module succesfully updated to {latest_version}, needed restart the userbot.")
-
+                log.info(f"Module successfully updated to {remote_version}, restart the userbot.")
+                
     def catch_connection_reset(func):
         async def wrapper(*args, **kwargs):
             try:
