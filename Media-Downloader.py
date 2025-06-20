@@ -1,4 +1,4 @@
-__version__ = (1, 1, 5)
+__version__ = (1, 1, 6)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -10,7 +10,7 @@ __version__ = (1, 1, 5)
 # requires: aiohttp mutagen python-ffmpeg
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
-# changelog: 1.1.5 change-log: Making it easier to support and update the module in the future, fixing a bug with an eternal update cycle (test).
+# changelog: 1.1.6 change-log: Reworking of the check_for_updates function, it was rewritten to comply with the documentation, including the correct use of the loop decorator.
 
 from herokutl.types import Message
 from .. import loader, utils
@@ -24,6 +24,9 @@ import asyncio
 import re
 import logging
 import errno
+import sys
+import inspect
+from pathlib import Path
 
 log = logging.getLogger(f"Media-Downloader")
 
@@ -157,21 +160,16 @@ class MediaDownloaderMod(loader.Module):
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
 
+    @loader.loop(300, autostart=True)
     async def check_for_updates(self):
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/refs/heads/heroku/Media-Downloader.py"
-
-        import os
-        import sys
-        import inspect
-        from pathlib import Path
-
-        module = sys.modules[__name__]
-        sys_module = inspect.getmodule(module)
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py"
 
         try:
+            module = sys.modules[__name__]
+            sys_module = inspect.getmodule(module)
             local_version = ".".join(map(str, sys_module.__version__))
         except Exception:
             log.warning("Local version not found in __version__")
@@ -183,38 +181,44 @@ class MediaDownloaderMod(loader.Module):
                     if resp.status != 200:
                         return
                     remote_text = await resp.text()
-        except Exception:
+        except Exception as e:
+            log.warning(f"Failed to fetch metadata: {e}")
             return
 
-        remote_lines = remote_text.splitlines()
         try:
-            first_line = remote_lines[0]
+            first_line = remote_text.splitlines()[0]
             if "__version__" not in first_line:
                 return
-            version_part = first_line.split("=", 1)[1].strip()
-            remote_version = version_part.strip("()").replace(",", "").replace(" ", ".")
+            remote_version = (
+                first_line.split("=", 1)[1]
+                .strip()
+                .strip("()")
+                .replace(",", "")
+                .replace(" ", ".")
+            )
         except Exception:
+            log.warning("Failed to parse remote version")
             return
 
         if remote_version != local_version:
-            log.info("New version detected, updating...")
+            log.info(f"New version detected: {remote_version}, updating...")
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(metadata_url) as resp:
                         if resp.status != 200:
                             return
                         new_code = await resp.text()
-            except Exception:
+            except Exception as e:
+                log.warning(f"Failed to download new code: {e}")
                 return
 
             try:
                 module_path = Path(sys_module.__file__).resolve()
-            except Exception:
-                return
-
-            with open(module_path, "w", encoding="utf-8") as f:
-                f.write(new_code)
-                log.info(f"Module successfully updated to {remote_version}, restart the userbot.")
+                with open(module_path, "w", encoding="utf-8") as f:
+                    f.write(new_code)
+                log.info(f"Module successfully updated to {remote_version}, restart required.")
+            except Exception as e:
+                log.warning(f"Failed to write new code: {e}")
 
     def catch_connection_reset(func):
         async def wrapper(*args, **kwargs):
@@ -288,7 +292,6 @@ class MediaDownloaderMod(loader.Module):
 
     def __init__(self):
         super().__init__()
-        asyncio.create_task(self.check_for_updates())
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "show_tiktok_info", True,
