@@ -18,6 +18,9 @@ import sys
 import inspect
 from pathlib import Path
 import os
+import logging
+
+log = logging.getLogger(f"Random-CatFactsH")
 
 @loader.tds
 class CatFactsH(loader.Module):
