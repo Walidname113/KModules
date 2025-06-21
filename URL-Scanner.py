@@ -17,6 +17,9 @@ import sys
 import inspect
 from pathlib import Path
 import os
+import logging
+
+log = logging.getLogger(f"URL-Scanner")
 
 @loader.tds
 class UrlScanMod(loader.Module):
