@@ -1,3 +1,4 @@
+__version__ = (1, 0, 7)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of URL-Scanner and is licensed under the GNU AGPLv3.
@@ -7,14 +8,19 @@
 # -------------------------------------------------
 # meta developer: @RenaYugen
 # scope: hikka_only
-__version__ = (1, 0, 6)
+# changelog: 1.0.7 change-log: Changelog added, module auto-update function reworked (requires complete re-download of the module to apply) added _cls_doc.
 
 from .. import loader, utils
 import aiohttp
 import asyncio
 from telethon.tl.types import InputMediaPhotoExternal
+import sys
+import inspect
+from pathlib import Path
+import os
+import logging
 
-mversion = "v1.0.6"
+log = logging.getLogger(f"URL-Scanner")
 
 @loader.tds
 class UrlScanMod(loader.Module):
@@ -44,6 +50,7 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5273946310200809961>😉</emoji> <b>Result:</b> <a href=\"{result_url}\">tap</a>"
         ),
         "auto_update_ch": "Auto-update(?) the module when new versions are available.",
+        "_cls_doc": "URL Scanner via urlscan.io."
     }
 
     strings_ru = {
@@ -71,67 +78,71 @@ class UrlScanMod(loader.Module):
             "<emoji document_id=5273946310200809961>😉</emoji> <b>Результат:</b> <a href=\"{result_url}\">жмяк</a>"
         ),
         "auto_update_ch": "Автообновлять ли модуль при поступлении новых версий.",
+        "_cls_doc": "Сканирует ссылки при помощи urlscan.io."
     }
 
+    @loader.loop(300, autostart=True)
     async def check_for_updates(self):
-        import os
-        import sys
-        from pathlib import Path
-
         if not self.config.get("auto_update", True):
             return
 
-        metadata_url = "https://raw.githubusercontent.com/walidname113/KModules/main/modulesmetadata.txt"
-        module_name = self.strings["name"]
-        current_version = mversion
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/hikka/URL-Scanner.py"
+
+        try:
+            module = sys.modules[__name__]
+            sys_module = inspect.getmodule(module)
+            local_version = ".".join(map(str, sys_module.__version__))
+        except Exception:
+            log.warning("Local version not found in __version__")
+            return
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(metadata_url) as resp:
                     if resp.status != 200:
                         return
-                    text = await resp.text()
-        except Exception:
+                    remote_text = await resp.text()
+        except Exception as e:
+            log.warning(f"Failed to fetch metadata: {e}")
             return
 
-        latest_version = None
-        for line in text.splitlines():
-            if line.startswith(f"{module_name}:"):
-                latest_version = line.split(":", 1)[1].strip()
-                break
+        try:
+            first_line = remote_text.splitlines()[0]
+            if "__version__" not in first_line:
+                return
+            remote_version = (
+                first_line.split("=", 1)[1]
+                .strip()
+                .strip("()")
+                .replace(",", "")
+                .replace(" ", ".")
+            )
+        except Exception:
+            log.warning("Failed to parse remote version")
+            return
 
-        if latest_version and latest_version != current_version:
-            raw_module_url = f"https://raw.githubusercontent.com/walidname113/KModules/main/{module_name.replace(' ', '')}.py"
+        if remote_version != local_version:
+            log.info(f"New version detected: {remote_version}, updating...")
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(raw_module_url) as resp:
+                    async with session.get(metadata_url) as resp:
                         if resp.status != 200:
                             return
                         new_code = await resp.text()
-            except Exception:
+            except Exception as e:
+                log.warning(f"Failed to download new code: {e}")
                 return
 
-            module_path = None
             try:
-                module_path = Path(__file__).resolve()
-            except NameError:
-                module_path = getattr(sys.modules.get(__name__), '__file__', None)
-                if module_path:
-                    module_path = Path(module_path).resolve()
-                else:
-                    cwd = Path(os.getcwd())
-                    candidates = list(cwd.glob('*UrlScanMod*.py'))
-                    if candidates:
-                        module_path = candidates[0].resolve()
-                    else:
-                        module_path = cwd / f"{module_name.replace(' ', '')}.py"
-
-            with open(module_path, "w", encoding="utf-8") as f:
-                f.write(new_code)
+                module_path = Path(sys_module.__file__).resolve()
+                with open(module_path, "w", encoding="utf-8") as f:
+                    f.write(new_code)
+                log.info(f"Module successfully updated to {remote_version}, restart required.")
+            except Exception as e:
+                log.warning(f"Failed to write new code: {e}")
 
     def __init__(self):
         super().__init__()
-        asyncio.create_task(self.check_for_updates())
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "api_key", None,
