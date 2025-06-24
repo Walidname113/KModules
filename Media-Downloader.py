@@ -1,4 +1,4 @@
-__version__ = (1, 1, 6)
+__version__ = (1, 1, 7)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 1, 6)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.1.6 change-log: Reworking of the check_for_updates function, it was rewritten to comply with the documentation, including the correct use of the loop decorator. 
+# changelog: 1.1.7 change-log: added client_ready, changed meta developer, testing update system.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -99,6 +99,7 @@ class MediaDownloaderMod(loader.Module):
         "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Server closed connection (104). Possible solution: Enable blocking of video up to 1080p60 in module config (<code>allow_high_res</code>), if it does not help: check the speed of the Internet connection.",
         "show_ytdlh_vname": "Show the title of a YouTube video when it is loaded?",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
+        "rrs": "[Useful] Channel with information about modules from the developer.",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."
     }
 
@@ -158,8 +159,17 @@ class MediaDownloaderMod(loader.Module):
         "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Сервер закрыл соединение (104). Возможные решения: Включить блокировку максимального качества загрузки видео в 1080р60 в конфиге модуля (<code>allow_high_res</code>), если не помогает, то проверить скорость интернета. Скорее всего, видео слишком долгое/качественное, от чего занимает слишком много места.",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
+        "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
+
+    async def client_ready(self, client, db):
+        self.client = client
+        self.db = db        
+        await self.request_join(
+            "@KiyatsukaModules",
+            self.strings['rrs'],
+        )
     
     @loader.loop(300, autostart=True)
     async def check_for_updates(self):
