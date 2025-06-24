@@ -11,7 +11,7 @@ __version__ = (1, 1, 7)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.1.7 change-log: added client_ready, changed meta developer, testing update system.
+# changelog: 1.1.7 change-log: added client_ready, changed meta developer.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -208,11 +208,12 @@ class MediaDownloaderMod(loader.Module):
                 .replace(" ", ".")
             )
         except Exception:
-            log.warning("Failed to parse remote version")
+            log.warning("Failed to parse remote version.")
             return
 
         if remote_version != local_version:
             log.info(f"New version detected: {remote_version}, updating...")
+
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(metadata_url) as resp:
@@ -224,13 +225,30 @@ class MediaDownloaderMod(loader.Module):
                 return
 
             try:
-                module_path = Path(sys_module.__file__).resolve()
+                user_id = getattr(self, "user_id", None)
+                if user_id is None:
+                    try:
+                        me = await self.client.get_me()
+                        user_id = me.id
+                    except Exception:
+                        log.warning("Failed to get user_id for module path")
+                        return
+
+                module_name = f"MediaDownloaderMod_{user_id}.py"
+                base_path = Path(__file__).parent.parent / "loaded_modules"
+                module_path = base_path / module_name
+
+                if not base_path.exists():
+                    log.warning(f"Loaded modules directory does not exist: {base_path}")
+                    return
+
                 with open(module_path, "w", encoding="utf-8") as f:
                     f.write(new_code)
+
                 log.info(f"Module successfully updated to {remote_version}, restart required.")
             except Exception as e:
                 log.warning(f"Failed to write new code: {e}")
-
+                
     def catch_connection_reset(func):
         async def wrapper(*args, **kwargs):
             try:
