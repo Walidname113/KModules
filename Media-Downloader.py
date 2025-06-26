@@ -1,4 +1,4 @@
-__version__ = (1, 1, 7)
+__version__ = (1, 1, 9)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -6,12 +6,12 @@ __version__ = (1, 1, 7)
 # Original repository: https://github.com/Walidname113/KModules
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
-# meta developer: @RenaYugen
+# meta developer: @KiyatsukaModules
 # requires: aiohttp mutagen python-ffmpeg
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.1.7 change-log: added client_ready, changed meta developer.
+# changelog: 1.1.9 change-log: Reworked update system, added UA localization.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -100,6 +100,8 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Show the title of a YouTube video when it is loaded?",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
         "rrs": "[Useful] Channel with information about modules from the developer.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."
     }
 
@@ -160,8 +162,72 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
+
+    strings_ua = {
+        "name": "Media-Downloader",
+        "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажіть ім'я користувача та номер історії.",
+        "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Формат: tgsload <ім'я_користувача> <номер_історії>`",
+        "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Номер історії повинен бути додатним числом.",
+        "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті API: {error}",
+        "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Історії не знайдено.",
+        "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Невірний номер історії. Доступний діапазон: 1 - {max_index}",
+        "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> У вибраної історії відсутній URL.",
+        "download_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при завантаженні файлу: {error}",
+        "success_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Історія успішно завантажена!\n<emoji document_id=6039451237743595514>📎</emoji> <b>Опис:</b> {caption}",
+        "success_no_caption_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Історія успішно завантажена!",
+        "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую історію...",
+        "cfg_show_caption_tgs": "Показувати опис у завантажених історіях.",
+        "no_url": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажи посилання на трек Spotify.",
+        "fetching": "<emoji document_id=6030657343744644592>🔄</emoji> Отримую дані...",
+        "api_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}",
+        "api_exception": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API: {}",
+        "api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Не вдалося отримати дані треку.",
+        "invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Некоректні дані від API.",
+        "downloading": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую трек...",
+        "download_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при завантаженні треку. Статус: {}",
+        "image_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при завантаженні обкладинки. Статус: {}",
+        "file_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при завантаженні файлів: {}",
+        "tag_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при додаванні обкладинки: {}",
+        "done_caption": "<emoji document_id=5318760565902947324>✅</emoji> Трек успішно завантажено!\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "done_caption_minimal": "<emoji document_id=5318760565902947324>✅</emoji> Трек успішно завантажено!",
+        "no_tiktok_url": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажи посилання на відео TikTok.",
+        "tiktok_api_fail": "<emoji document_id=5278578973595427038>🚫</emoji> Не вдалося отримати дані відео.",
+        "tiktok_invalid_data": "<emoji document_id=5278578973595427038>🚫</emoji> Некоректні дані від TikTok API.",
+        "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> Не знайдено підходящих відео для завантаження.",
+        "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> відео...",
+        "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую відео...",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!",
+        "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!",
+        "cfg_show_tiktok_info": "Показувати автора та посилання в TikTok.",
+        "cfg_show_spotify_link": "Показувати посилання в Spotify.",
+        "cfg_force_hd": "Завжди завантажувати відео в HD (якщо доступно).",
+        "auto_update_ch": "Автоматично оновлювати модуль при нових версіях.",
+        "cfg_filter_links": "Фільтрувати посилання в описах до історій при їх завантаженні.",
+        "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg не встановлено в системі. Встановіть <a href='https://t.me/hikka_talks/631886'>за посиланням</a>.",
+        "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка API: <code>{}</code>.",
+        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!",
+        "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!",
+        "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Може бути довго]</b> | Завантажую результат...",
+        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка: <code>{}</code>.",
+        "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> Немає доступних медіа",
+        "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажи посилання на YouTube відео!",
+        "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Немає потоків у дозволеному розширенні! Щоб виправити, введіть: <code>{pref}fcfg Media-Downloader allow_high_res True</code> <b>(Не завжди допомагає)</b>.",
+        "config_allow_high_res": "Дозволити завантаження >1080p60 | WARNING: Якщо ваш пристрій не підтримує більше ніж 1080p, немає сенсу дозволяти цю настройку.",
+        "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Попередження про BETA-версії!</b>\n\n<blockquote>Усі команди, які мають ініціали <b>BETA/ALPHA/TEST</b> — потенційно нестабільні. Це означає, що ці команди можуть часто викликати помилки або працювати неправильно, або взагалі не працювати, а іноді і зовсім <b>зламати роботу всього модуля</b>. Якщо ви цього не хочете, рекомендується більше не використовувати ці команди і чекати, поки вони будуть стабільно реалізовані. Бета-версії виходять тільки після тестування, тому помилки на кшталт повного зламу модуля <b>майже завжди виключені</b>, але гарантій немає.</blockquote>",
+        "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Сервер закрив з’єднання (104). Можливі рішення: Увімкнути блокування максимального якості завантаження відео в 1080p60 у конфігурації модуля (<code>allow_high_res</code>), якщо не допомагає — перевірити швидкість інтернету. Швидше за все, відео надто довге/якісне, через що займає забагато місця.",
+        "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg повернув помилку: <code>{retcode}</code>.",
+        "show_ytdlh_vname": "Показувати назву відео при завантаженні з YouTube?",
+        "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
+        "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD."
+    }    
 
     async def client_ready(self, client, db):
         self.client = client
@@ -171,11 +237,7 @@ class MediaDownloaderMod(loader.Module):
             self.strings['rrs'],
         )
     
-    @loader.loop(300, autostart=True)
-    async def check_for_updates(self):
-        if not self.config.get("auto_update", True):
-            return
-
+    async def check_update_status(self):
         metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py"
 
         try:
@@ -183,23 +245,21 @@ class MediaDownloaderMod(loader.Module):
             sys_module = inspect.getmodule(module)
             local_version = ".".join(map(str, sys_module.__version__))
         except Exception:
-            log.warning("Local version not found in __version__")
-            return
+            return False
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(metadata_url) as resp:
                     if resp.status != 200:
-                        return
+                        return False
                     remote_text = await resp.text()
-        except Exception as e:
-            log.warning(f"Failed to fetch metadata: {e}")
-            return
+        except Exception:
+            return False
 
         try:
             first_line = remote_text.splitlines()[0]
             if "__version__" not in first_line:
-                return
+                return False
             remote_version = (
                 first_line.split("=", 1)[1]
                 .strip()
@@ -208,46 +268,9 @@ class MediaDownloaderMod(loader.Module):
                 .replace(" ", ".")
             )
         except Exception:
-            log.warning("Failed to parse remote version.")
-            return
+            return False
 
-        if remote_version != local_version:
-            log.info(f"New version detected: {remote_version}, updating...")
-
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(metadata_url) as resp:
-                        if resp.status != 200:
-                            return
-                        new_code = await resp.text()
-            except Exception as e:
-                log.warning(f"Failed to download new code: {e}")
-                return
-
-            try:
-                user_id = getattr(self, "user_id", None)
-                if user_id is None:
-                    try:
-                        me = await self.client.get_me()
-                        user_id = me.id
-                    except Exception:
-                        log.warning("Failed to get user_id for module path")
-                        return
-
-                module_name = f"MediaDownloaderMod_{user_id}.py"
-                base_path = Path(__file__).parent.parent / "loaded_modules"
-                module_path = base_path / module_name
-
-                if not base_path.exists():
-                    log.warning(f"Loaded modules directory does not exist: {base_path}")
-                    return
-
-                with open(module_path, "w", encoding="utf-8") as f:
-                    f.write(new_code)
-
-                log.info(f"Module successfully updated to {remote_version}, restart required.")
-            except Exception as e:
-                log.warning(f"Failed to write new code: {e}")
+        return remote_version == local_version
                 
     def catch_connection_reset(func):
         async def wrapper(*args, **kwargs):
@@ -335,11 +358,6 @@ class MediaDownloaderMod(loader.Module):
             loader.ConfigValue(
                 "force_hd", True,
                 doc=lambda: self.strings("cfg_force_hd"),
-                validator=loader.validators.Boolean(),
-            ),
-            loader.ConfigValue(
-                "auto_update", True,
-                doc=lambda: self.strings("auto_update_ch"),
                 validator=loader.validators.Boolean(),
             ),
             loader.ConfigValue(
@@ -787,3 +805,63 @@ class MediaDownloaderMod(loader.Module):
 #    async def whybetavcmd(self, m: Message):
 #        """BETA WARNING MESSAGE"""
 #        await utils.answer(m, self.strings("whybeta"))
+
+    @loader.command(en_doc="Check module updates.", ru_doc="Проверить обновления модуля.")
+    async def updcheckcmd(self, message):
+        """This command check module updates."""
+        pref = self.get_prefix()
+        
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py"
+
+        try:
+            module = sys.modules[__name__]
+            sys_module = inspect.getmodule(module)
+            local_version = ".".join(map(str, sys_module.__version__))
+        except Exception:
+            log.error("The function failed to get the local version of the module.")
+            await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
+            return
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(metadata_url) as resp:
+                    if resp.status != 200:
+                        log.error(f"Github return {resp.status} code, although 200 was expected.")
+                        await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
+                        return
+                    remote_text = await resp.text()
+        except Exception:
+            log.error("Failed to connect on GitHub.")
+            await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
+            return
+
+        remote_lines = remote_text.splitlines()
+
+        try:
+            first_line = remote_lines[0]
+            remote_version = (
+                first_line.split("=", 1)[1]
+                .strip()
+                .strip("()")
+                .replace(",", "")
+                .replace(" ", ".")
+            )
+        except Exception:
+            log.error("Failed to fetch remote version.")
+            await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
+            return
+
+        remote_changelog = next(
+            (line.split(":", 1)[1].strip() for line in remote_lines if line.lower().strip().startswith("# changelog:")),
+            "—"
+        )
+
+        if remote_version == local_version:
+            await utils.answer(message, self.strings("nupdm").format(local_version=local_version))
+        else:
+            await utils.answer(message, self.strings("updm").format(
+                local_version=local_version,
+                remote_version=remote_version,
+                remote_changelog=remote_changelog,
+                pref=pref
+            ))
