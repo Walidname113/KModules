@@ -1,4 +1,4 @@
-__version__ = (1, 1, 9)
+__version__ = (1, 2, 0)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 1, 9)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.1.9 change-log: Reworked update system, added UA localization.
+# changelog: 1.2.0 change-log: Added UA localization.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -101,7 +101,7 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
         "rrs": "[Useful] Channel with information about modules from the developer.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."
     }
 
@@ -163,7 +163,7 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
     }
 
@@ -225,7 +225,7 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Показувати назву відео при завантаженні з YouTube?",
         "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD."
     }    
 
@@ -385,8 +385,7 @@ class MediaDownloaderMod(loader.Module):
             )
         )
         
-    @loader.command(ru_doc=f"Скачать видео из TikTok.\nИспользование: .tikload <ссылка>",
-                    en_doc=f"Download TikTok video.\nUsage: .tikload <link>")
+    @loader.command(ru_doc=f"Скачать видео из TikTok.\nИспользование: .tikload <ссылка>.", en_doc=f"Download TikTok video.\nUsage: .tikload <link>.", ua_doc=f"Завантажити відео із TikTok.\nВикористання: .tikload <посилання>.")
     async def tikloadcmd(self, message: Message):
         """This command downloads videos from TikTok."""
         args = utils.get_args_raw(message)
@@ -487,10 +486,7 @@ class MediaDownloaderMod(loader.Module):
                 video_note=False,
             )
 
-    @loader.command(
-        ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>",
-        en_doc="Download Spotify track.\nUsage: .spot <link>"
-    )
+    @loader.command(ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>.", en_doc="Download Spotify track.\nUsage: .spot <link>.", ua_doc="Завантажити трек із Spotify.\nВикористання: .spot <посилання>.")
     async def spotcmd(self, message: Message):
         """This command downloads music from Spotify."""        
         args = utils.get_args_raw(message)
@@ -596,9 +592,7 @@ class MediaDownloaderMod(loader.Module):
                 voice_note=False,
             )
 
-    @loader.command(
-        ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <username> <story_number>",
-        en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>")
+    @loader.command(ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <юзернейм> <номер_истории>.", en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>.", ua_doc="Завантажити історію користувача.\nВикористання: .tgsload <юзернейм> <номер_історії>.")
     async def tgsloadcmd(self, message):
         """This command downloads a Telegram story."""
         args = utils.get_args_raw(message)
@@ -690,7 +684,7 @@ class MediaDownloaderMod(loader.Module):
         finally:
             os.remove(tmp_file_path)
 
-    @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.", ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <link>.")
+    @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.", ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <ссылка>.", ua_doc="Завантажити відео з YouTube.\nВикористання: .ytlh <посилання>.")
     async def ytlhcmd(self, message: Message):
         """Load YouTube video as link."""
         args = utils.get_args_raw(message)
@@ -801,12 +795,12 @@ class MediaDownloaderMod(loader.Module):
                     except:
                         pass
 
-#    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.")
+#    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.", ua_doc="BETA ПОПЕРЕДЖЕННЯ.")
 #    async def whybetavcmd(self, m: Message):
 #        """BETA WARNING MESSAGE"""
 #        await utils.answer(m, self.strings("whybeta"))
 
-    @loader.command(en_doc="Check module updates.", ru_doc="Проверить обновления модуля.")
+    @loader.command(en_doc="Check module updates.", ru_doc="Проверить обновления модуля.", ua_doc="Перевірити оновлення модуля.")
     async def updcheckcmd(self, message):
         """This command check module updates."""
         pref = self.get_prefix()
