@@ -229,6 +229,7 @@ class MediaDownloaderMod(loader.Module):
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}. Спробуйте ще раз. Це може допомогти."
     }
+    
     async def client_ready(self, client, db):
         self.client = client
         self.db = db        
