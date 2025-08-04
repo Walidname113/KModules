@@ -1,4 +1,4 @@
-__version__ = (1, 2, 0)
+__version__ = (1, 2, 1)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 2, 0)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.0 change-log: Added UA localization.
+# changelog: 1.2.1 change-log: Improvements.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -24,12 +24,10 @@ from urllib.parse import urlparse
 import asyncio
 import re
 import logging
-import errno
 import sys
 import inspect
-from pathlib import Path
 
-log = logging.getLogger(f"Media-Downloader")
+log = logging.getLogger("Media-Downloader")
 
 LINK_PATTERN = re.compile(
     r"(?:http[s]?://|www\.)[^\s\/]+?\.(?:com|net|org|io|ru|su|ua|jp)(?:[\/\w\-\.\?\=\&\%\#]*)",
@@ -102,7 +100,8 @@ class MediaDownloaderMod(loader.Module):
         "rrs": "[Useful] Channel with information about modules from the developer.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
-        "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."
+        "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD.",
+        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {}. Try again. This should help."
     }
 
     strings_ru = {
@@ -164,7 +163,8 @@ class MediaDownloaderMod(loader.Module):
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
-        "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD."
+        "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD.",
+        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}. Попробуйте снова. Это должно помочь."
     }
 
     strings_ua = {
@@ -226,9 +226,9 @@ class MediaDownloaderMod(loader.Module):
         "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
-        "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD."
-    }    
-
+        "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
+        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}. Спробуйте ще раз. Це може допомогти."
+    }
     async def client_ready(self, client, db):
         self.client = client
         self.db = db        
@@ -385,7 +385,7 @@ class MediaDownloaderMod(loader.Module):
             )
         )
         
-    @loader.command(ru_doc=f"Скачать видео из TikTok.\nИспользование: .tikload <ссылка>.", en_doc=f"Download TikTok video.\nUsage: .tikload <link>.", ua_doc=f"Завантажити відео із TikTok.\nВикористання: .tikload <посилання>.")
+    @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>.", en_doc="Download TikTok video.\nUsage: .tikload <link>.", ua_doc="Завантажити відео із TikTok.\nВикористання: .tikload <посилання>.")
     async def tikloadcmd(self, message: Message):
         """This command downloads videos from TikTok."""
         args = utils.get_args_raw(message)
@@ -401,7 +401,9 @@ class MediaDownloaderMod(loader.Module):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(api_url) as resp:
-                    if resp.status != 200:
+                    if resp.status == 500:
+                        await utils.answer(message, self.strings["api_error_500"].format(resp.status))
+                    elif resp.status != 200:        
                         await utils.answer(message, self.strings["api_error"].format(resp.status))
                         return
                     data = await resp.json()
@@ -792,7 +794,7 @@ class MediaDownloaderMod(loader.Module):
                 if file and os.path.exists(file):
                     try:
                         os.remove(file)
-                    except:
+                    except (FileNotFoundError, FileExistsError):
                         pass
 
 #    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.", ua_doc="BETA ПОПЕРЕДЖЕННЯ.")
