@@ -1,4 +1,4 @@
-__version__ = (1, 2, 2)
+__version__ = (1, 2, 3)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 2, 2)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.2 change-log: Added API status checking in the updcheck command.
+# changelog: 1.2.3 change-log: Added API status checking in the updcheck command. Hotfix.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -895,9 +895,9 @@ class MediaDownloaderMod(loader.Module):
             await utils.answer(message, f"{self.strings('nupdm').format(local_version=local_version)}\n\n"
                                         f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
                                         f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
-                                        f"<emoji document_id=5471949924658588235>🗨️</emoji> Telegram Story API status: {tg_status}")
+                                        f"<emoji document_id=5471949924658588235>🩵</emoji> Telegram Story API status: {tg_status}")
         else:
             await utils.answer(message, f"{self.strings('updm').format(local_version=local_version, remote_version=remote_version, remote_changelog=remote_changelog, pref=pref)}\n\n"
                                         f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
                                         f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
-                                        f"<emoji document_id=5471949924658588235>🗨️</emoji> Telegram Story API status: {tg_status}")
+                                        f"<emoji document_id=5471949924658588235>🩵</emoji> Telegram Story API status: {tg_status}")
