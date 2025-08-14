@@ -1,4 +1,4 @@
-__version__ = (1, 2, 1)
+__version__ = (1, 2, 2)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 2, 1)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.1 change-log: Improvements.
+# changelog: 1.2.2 change-log: Added API status checking in the updcheck command.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -808,7 +808,7 @@ class MediaDownloaderMod(loader.Module):
         """This command check module updates."""
         pref = self.get_prefix()
         
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py"
 
         try:
             module = sys.modules[__name__]
@@ -853,12 +853,51 @@ class MediaDownloaderMod(loader.Module):
             "—"
         )
 
+        async with aiohttp.ClientSession() as session:
+
+            async def check_tiktok():
+                try:
+                    async with session.get("https://tiktok-downloader.apis-bj-devs.workers.dev?url=https://vm.tiktok.com/ZMAdr1fRH/") as r:
+                        data = await r.json()
+                        downloads = data.get("downloads", [])
+                        return "<emoji document_id=5278411813468269386>✔️</emoji>" if any(d.get("type") == "download_video_hd" for d in downloads) else "<emoji document_id=5278578973595427038>🚫</emoji>"
+                except Exception as e:
+                    return "🚫 ERROR. More info in logs."
+                    log.error(e)
+
+            async def check_spotify():
+                try:
+                    async with session.get("https://bj-tricks.serv00.net/Spotify-downloader-api/?url=https://open.spotify.com/track/2re6FKxMAOBgQMl0V58U0p") as r:
+                        data = await r.json()
+                        dl_link = data.get("data", {}).get("downloadLink")
+                        return "<emoji document_id=5278411813468269386>✔️</emoji>" if dl_link else "<emoji document_id=5278578973595427038>🚫</emoji>"
+                except Exception as e:
+                    return "<b>🚫 ERROR. More info in logs.</b>"
+                    log.error(e)
+
+            async def check_telegram_story():
+                try:
+                    async with session.get("https://telegram-story.apis-bj-devs.workers.dev/?username=Kiyatsuka&action=archive") as r:
+                        data = await r.json()
+                        if data.get("status") is True and data.get("code") == 200:
+                            return "<emoji document_id=5278411813468269386>✔️</emoji>"
+                        else:
+                            return "<emoji document_id=5278578973595427038>🚫</emoji>"
+                except Exception as e:
+                    return "🚫 ERROR. More info in logs."
+                    log.error(e)
+
+            tiktok_status, spotify_status, tg_status = await asyncio.gather(
+                check_tiktok(), check_spotify(), check_telegram_story()
+            )
+
         if remote_version == local_version:
-            await utils.answer(message, self.strings("nupdm").format(local_version=local_version))
+            await utils.answer(message, f"{self.strings('nupdm').format(local_version=local_version)}\n\n"
+                                        f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
+                                        f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
+                                        f"<emoji document_id=5471949924658588235>🗨️</emoji> Telegram Story API status: {tg_status}")
         else:
-            await utils.answer(message, self.strings("updm").format(
-                local_version=local_version,
-                remote_version=remote_version,
-                remote_changelog=remote_changelog,
-                pref=pref
-            ))
+            await utils.answer(message, f"{self.strings('updm').format(local_version=local_version, remote_version=remote_version, remote_changelog=remote_changelog, pref=pref)}\n\n"
+                                        f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
+                                        f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
+                                        f"<emoji document_id=5471949924658588235>🗨️</emoji> Telegram Story API status: {tg_status}")
