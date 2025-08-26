@@ -11,7 +11,7 @@ __version__ = (1, 2, 4)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.3 change-log: Fixed a critical bug for the correct module update.
+# changelog: 1.2.4 change-log: Fixed a critical bug for the correct module update.
 
 from hikkatl.types import Message
 from .. import loader, utils
