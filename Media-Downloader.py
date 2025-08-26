@@ -1,4 +1,4 @@
-__version__ = (1, 2, 3)
+__version__ = (1, 2, 4)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 2, 3)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.3 change-log: Added API status checking in the updcheck command. Hotfix.
+# changelog: 1.2.3 change-log: Fixed a critical bug for the correct module update.
 
 from hikkatl.types import Message
 from .. import loader, utils
@@ -808,7 +808,7 @@ class MediaDownloaderMod(loader.Module):
         """This command check module updates."""
         pref = self.get_prefix()
         
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py"
 
         try:
             module = sys.modules[__name__]
