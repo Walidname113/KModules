@@ -1,4 +1,4 @@
-__version__ = (1, 2, 4)
+__version__ = (1, 2, 6)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,8 +11,7 @@ __version__ = (1, 2, 4)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
-# changelog: 1.2.4 change-log: Fixed a critical bug for the correct module update.
-
+# changelog: 1.2.6 change-log: For the team that downloads media from tiktok, the ability to upload photos has been added. Improvements. Added user_ids log to keep statistics on the use of the module.
 from hikkatl.types import Message
 from .. import loader, utils
 import aiohttp
@@ -26,6 +25,8 @@ import re
 import logging
 import sys
 import inspect
+import io
+import json
 
 log = logging.getLogger("Media-Downloader")
 
@@ -62,8 +63,8 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> No suitable videos found for download.",
         "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> video...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading video...",
-        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video succesfully downloaded!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!",
         "cfg_show_tiktok_info": "Show author and link for TikTok message caption.",
@@ -101,6 +102,8 @@ class MediaDownloaderMod(loader.Module):
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD.",
+        "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Photo successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
+        "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> photo...",
         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {}. Try again. This should help."
     }
 
@@ -137,8 +140,8 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> Не найдено подходящих видео для загрузки.",
         "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю <b>HD</b> видео...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Скачиваю видео...",
-        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!",
         "cfg_show_tiktok_info": "Показывать автора и ссылку в TikTok.",
@@ -164,6 +167,8 @@ class MediaDownloaderMod(loader.Module):
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD.",
+        "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успешно загружены!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>", 
+        "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю <b>HD</b> фото...", 
         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}. Попробуйте снова. Это должно помочь."
     }
 
@@ -200,8 +205,8 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_no_video": "<emoji document_id=5278578973595427038>🚫</emoji> Не знайдено підходящих відео для завантаження.",
         "downloading_hd": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> відео...",
         "downloading_sd": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую відео...",
-        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
-        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{}</code>",
+        "tiktok_success_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
+        "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!",
         "cfg_show_tiktok_info": "Показувати автора та посилання в TikTok.",
@@ -227,12 +232,80 @@ class MediaDownloaderMod(loader.Module):
         "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.",
         "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<i>{remote_changelog}</i>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/hikka/Media-Downloader.py</code>.",
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
+        "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
+        "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> фото...",
         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}. Спробуйте ще раз. Це може допомогти."
     }
     
+    API_URL_TOKEN = "https://logkiya.netlify.app/.netlify/functions/tokenGen"
+    API_URL_LOG = "https://logkiya.netlify.app/.netlify/functions/logUser"
+
+    async def get_token(self, whatgen, user_id=None):
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(self.API_URL_TOKEN, json={"whatgen": whatgen}) as r:
+                    r.raise_for_status()
+                    text = (await r.text()).strip()
+                    try:
+                        data = json.loads(text)
+                        token = data.get("token", "").strip()
+                        log.warning(f"Получен JSON токен: '{token}'")
+                    except Exception:
+                        token = text
+                        log.warning(f"Получен plain text токен: '{token}'")
+
+                    if user_id:
+                        payload = {
+                            "userId": user_id,
+                            "token": token,
+                            "developerKey": "publictoken"
+                        }
+                        log.warning(f"Payload для logUser, который будет отправлен: {payload}")
+
+                    return token
+
+            except aiohttp.ClientResponseError as e:
+                log.error(f"Error due CRE: {e}")
+            except Exception as e:
+                log.error(f"Error due Exc: {e}")
+
+        return None
+
+    async def log_user(self, user_id, token):
+        async with aiohttp.ClientSession() as session:
+            token = token.strip()
+            developerKey = "publictoken"
+            payload = {"userId": user_id, "token": token, "developerKey": developerKey}
+            log.warning(f"Отправка запроса на logUser с payload: {payload}")
+
+            try:
+                async with session.post(self.API_URL_LOG, json=payload) as r:
+                    r.raise_for_status()
+                    text = (await r.text()).strip()
+                    try:
+                        data = json.loads(text)
+                        log.warning(f"Ответ от logUser (JSON): {data}")
+                        return data
+                    except Exception:
+                        log.warning(f"Ответ от logUser (plain text): {text}")
+                        return text
+            except aiohttp.ClientResponseError as e:
+                log.error(f"Error due CRE: {e}")
+            except Exception as e:
+                log.error(f"Error due Exc: {e}")
+
+        return None
+
     async def client_ready(self, client, db):
         self.client = client
-        self.db = db        
+        self.db = db
+
+        user_id = (await self.client.get_me()).id
+        token = await self.get_token("2", user_id=user_id)
+        if token:
+            await self.log_user(user_id, token)
+            log.warning(f"Токен '{token}' получен и пользователь '{user_id}' залогирован.")
+
         await self.request_join(
             "@KiyatsukaModules",
             self.strings['rrs'],
@@ -388,106 +461,175 @@ class MediaDownloaderMod(loader.Module):
         
     @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>.", en_doc="Download TikTok video.\nUsage: .tikload <link>.", ua_doc="Завантажити відео із TikTok.\nВикористання: .tikload <посилання>.")
     async def tikloadcmd(self, message: Message):
-        """This command downloads videos from TikTok."""
+        """This command download a TikTok mediafiles."""
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings["no_tiktok_url"])
             return
 
         url = args.strip()
-        api_url = f"https://tiktok-downloader.apis-bj-devs.workers.dev?url={url}"
-      # await utils.answer(message, self.strings["fetching"])
+        original_url = url
 
-        data = None
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as resp:
-                    if resp.status == 500:
-                        await utils.answer(message, self.strings["api_error_500"].format(resp.status))
-                    elif resp.status != 200:        
-                        await utils.answer(message, self.strings["api_error"].format(resp.status))
-                        return
-                    data = await resp.json()
-        except Exception as e:
-            await utils.answer(message, self.strings["api_exception"].format(e))
-            return
+        media_type = "video" if "/video/" in url else "photo" if "/photo/" in url else None
+        media_id = None
 
-        if not data or not data.get("success"):
+        if media_type:
+            match = re.search(rf"/{media_type}/(\d+)", url)
+            if match:
+                media_id = match.group(1)
+
+        if not media_id:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.head(url, allow_redirects=True) as resp:
+                        final_url = str(resp.url)
+                        media_type = "video" if "/video/" in final_url else "photo" if "/photo/" in final_url else None
+                        match = re.search(rf"/{media_type}/(\d+)", final_url) if media_type else None
+                        media_id = match.group(1) if match else None
+            except Exception:
+                await utils.answer(message, self.strings["tiktok_api_fail"])
+                return
+
+        if not media_id or not media_type:
             await utils.answer(message, self.strings["tiktok_api_fail"])
             return
 
-        video_data = None
-        quality = ""
-        preferred = ["download_video_hd", "download_video_480p"]
-
-        if not self.config["force_hd"]:
-            preferred.reverse()
-
-        for q in preferred:
-            for item in data.get("downloads", []):
-                if item["type"] == q:
-                    video_data = item
-                    quality = "hd" if "hd" in q else "sd"
-                    break
-            if video_data:
-                break
-
-        if not video_data and not self.config["force_hd"]:
-            fallback_url = f"https://tele-social.vercel.app/down?url={url}"
+        if media_type == "video":
+            api_url = f"https://tiktok-downloader.apis-bj-devs.workers.dev?url={original_url}"
+            data = None
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(fallback_url) as resp:
-                        if resp.status == 200:
-                            alt_data = await resp.json()
-                            if alt_data.get("status") and "video" in alt_data.get("data", {}):
-                                video_data = {"url": alt_data["data"]["video"]}
-                                quality = "sd"
-            except Exception:
-                pass
+                    async with session.get(api_url) as resp:
+                        if resp.status != 200:
+                            await utils.answer(message, self.strings["api_error"].format(resp.status))
+                            return
+                        data = await resp.json()
+            except Exception as e:
+                await utils.answer(message, self.strings["api_exception"].format(e))
+                return
 
-        if not video_data:
-            await utils.answer(message, self.strings["tiktok_no_video"])
-            return
+            if not data or not data.get("success"):
+                await utils.answer(message, self.strings["tiktok_api_fail"])
+                return
 
-        await utils.answer(message, self.strings["downloading_hd"] if quality == "hd" else self.strings["downloading_sd"])
+            video_data = None
+            quality = ""
+            preferred = ["download_video_hd", "download_video_480p"]
+            if not self.config["force_hd"]:
+                preferred.reverse()
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            video_path = os.path.join(tmpdir, "video.mp4")
+            for q in preferred:
+                for item in data.get("downloads", []):
+                    if item["type"] == q:
+                        video_data = item
+                        quality = "hd" if "hd" in q else "sd"
+                        break
+                if video_data:
+                    break
+
+            if not video_data and not self.config["force_hd"]:
+                fallback_url = f"https://tele-social.vercel.app/down?url={original_url}"
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(fallback_url) as resp:
+                            if resp.status == 200:
+                                alt_data = await resp.json()
+                                if alt_data.get("status") and "video" in alt_data.get("data", {}):
+                                    video_data = {"url": alt_data["data"]["video"]}
+                                    quality = "sd"
+                except Exception:
+                    pass
+
+            if not video_data:
+                await utils.answer(message, self.strings["tiktok_no_video"])
+                return
+
+            await utils.answer(message, self.strings["downloading_hd"] if quality == "hd" else self.strings["downloading_sd"])
+
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(video_data["url"]) as resp:
                         if resp.status != 200:
                             await utils.answer(message, self.strings["download_error"].format(resp.status))
                             return
-                        with open(video_path, "wb") as f:
-                            f.write(await resp.read())
+                        video_bytes = await resp.read()
             except Exception as e:
                 await utils.answer(message, self.strings["file_error"].format(e))
                 return
 
-            author = data.get("author", "Unknown")
-            username = data.get("username", "unknown")
-            author_link = f"<a href='https://tiktok.com/@{username}'>{author}</a>"
+            video_stream = io.BytesIO(video_bytes)
+            video_stream.name = "video.mp4"
 
-            if self.config["show_tiktok_info"]:
-                caption_template = (
-                    self.strings["tiktok_success_hd"] if quality == "hd" else self.strings["tiktok_success_sd"]
-                )
-                caption = caption_template.format(author_link, url)
-            else:
-                caption = (
-                    self.strings["tiktok_success_minimal_hd"] if quality == "hd" else self.strings["tiktok_success_minimal_sd"]
-                )
+            username = data.get("username", "unknown")
+            nickname = data.get("author", "Unknown")
+            author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
+
+            caption = self.strings["tiktok_success_hd"].format(username=username, nickname=nickname, original_url=original_url, author=author)
 
             await message.client.send_file(
                 message.chat_id,
-                video_path,
+                video_stream,
                 caption=caption,
                 reply_to=message.id,
                 supports_streaming=True,
                 parse_mode='HTML',
                 video_note=False,
             )
+            return
+
+        elif media_type == "photo":
+            api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/photo/{media_id}"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(api_url) as resp:
+                        if resp.status != 200:
+                            await utils.answer(message, self.strings["api_error"].format(resp.status))
+                            return
+                        data = await resp.json()
+            except Exception:
+                await utils.answer(message, self.strings["tiktok_api_fail"])
+                return
+
+            images = data.get("data", {}).get("images", [])
+            if not images:
+                await utils.answer(message, self.strings["tiktok_no_video"])
+                return
+
+            await utils.answer(message, self.strings["downloading_ph"])
+
+            photo_streams = []
+            for idx, img_url in enumerate(images, 1):
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(img_url) as resp:
+                            if resp.status != 200:
+                                continue
+                            img_bytes = await resp.read()
+                    img_stream = io.BytesIO(img_bytes)
+                    img_stream.name = f"{media_id}_{idx}.jpg"
+                    photo_streams.append(img_stream)
+                except Exception:
+                    continue
+
+            if not photo_streams:
+                await utils.answer(message, self.strings["tiktok_no_video"])
+                return
+
+            author_info = data.get("data", {}).get("author", {})
+            username = author_info.get("unique_id", "unknown")
+            nickname = author_info.get("nickname", "Unknown")
+            author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
+
+            caption = self.strings["ph_succesfully"].format(username=username, nickname=nickname, original_url=original_url, author=author)
+
+            await message.client.send_file(
+                message.chat_id,
+                photo_streams,
+                reply_to=message.id,
+                caption=caption,
+                parse_mode="HTML"
+            )
+            return
 
     @loader.command(ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>.", en_doc="Download Spotify track.\nUsage: .spot <link>.", ua_doc="Завантажити трек із Spotify.\nВикористання: .spot <посилання>.")
     async def spotcmd(self, message: Message):
