@@ -10,6 +10,7 @@ __version__ = (1, 2, 6)
 # requires: aiohttp mutagen python-ffmpeg
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
+# scope: ffmpeg
 # changelog: 1.2.6 change-log: For the team that downloads media from tiktok, the ability to upload photos has been added. Improvements. Added user_ids log to keep statistics on the use of the module.
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
