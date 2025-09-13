@@ -11,6 +11,7 @@ __version__ = (1, 2, 6)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_only
 # scope: hikka_min 1.6.2
+# scope: ffmpeg
 # changelog: 1.2.6 change-log: For the team that downloads media from tiktok, the ability to upload photos has been added. Improvements. Added user_ids log to keep statistics on the use of the module.
 from hikkatl.types import Message
 from .. import loader, utils
