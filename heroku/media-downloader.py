@@ -1,4 +1,4 @@
-__version__ = (1, 2, 6)
+__version__ = (1, 2, 7)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,8 @@ __version__ = (1, 2, 6)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.2.6 change-log: For the team that downloads media from tiktok, the ability to upload photos has been added. Improvements. Added user_ids log to keep statistics on the use of the module.
+# changelog: 1.2.7 change-log: Added ffmpeg scope for greater installation compatibility
+
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
 import aiohttp # type: ignore
