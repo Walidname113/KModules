@@ -1,4 +1,4 @@
-__version__ = (1, 2, 7)
+__version__ = (1, 2, 8)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 2, 7)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.2.7 change-log: Added ffmpeg scope for greater installation compatibility
+# changelog: 1.2.8 change-log: Fixed critial errors.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -313,7 +313,7 @@ class MediaDownloaderMod(loader.Module):
         )
 
     async def check_update_status(self):
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py"
 
         try:
             module = sys.modules[__name__]
@@ -963,7 +963,7 @@ class MediaDownloaderMod(loader.Module):
         """This command check module updates."""
         pref = self.get_prefix()
         
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py"
 
         try:
             module = sys.modules[__name__]
