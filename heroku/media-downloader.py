@@ -1,4 +1,4 @@
-__version__ = (1, 2, 8)
+__version__ = (1, 2, 9)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -7,11 +7,11 @@ __version__ = (1, 2, 8)
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @KiyatsukaModules
-# requires: aiohttp mutagen python-ffmpeg
+# requires: aiohttp mutagen python-ffmpeg yt_dlp
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.2.8 change-log: Fixed critial errors.
+# changelog: 1.2.9 change-log: [BETA] This update brings a rework of tikload, ytlh for better use. Also in this update there are bug fixes and improvements.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -28,6 +28,9 @@ import sys
 import inspect
 import io
 import json
+import shutil
+from typing import Any, Dict, List, Optional, Union
+import yt_dlp
 
 log = logging.getLogger("Media-Downloader")
 
@@ -38,7 +41,193 @@ LINK_PATTERN = re.compile(
 
 class ConnectionResetByPeer(Exception):
     pass
-    
+
+class YouTubeDownloaderError(Exception):
+    """Custom exception for YouTubeDownloader errors with optional hint."""
+    def __init__(self, message: str, hint: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.hint: Optional[str] = hint
+
+
+class AsyncYouTubeDownloader:
+    VALID_VIDEO_QUALITY_REGEX = re.compile(
+        r'^(?P<height>\d{3,4})(?:p)?(?:\d{2})?(?:\s*HDR)?$', re.IGNORECASE
+    )
+    SUPPORTED_AUDIO_QUALITIES: List[str] = ['low', 'medium', 'high', 'best']
+
+    def __init__(
+        self,
+        video_url: str,
+        enable_logs: bool = False,
+        auto_download: bool = False,
+        video_quality: Optional[str] = None,
+        audio_quality: str = 'best',
+        force_combined: bool = False
+    ) -> None:
+        self.video_url: str = video_url
+        self.enable_logs: bool = enable_logs
+        self.auto_download: bool = auto_download
+        self.video_quality: Optional[str] = video_quality
+        self.audio_quality: str = audio_quality
+        self.force_combined: bool = force_combined
+        self.info: Optional[Dict[str, Any]] = None
+        self.result: Dict[str, Any] = {}
+
+    def _validate_video_quality(self, quality: str) -> str:
+        if not quality:
+            return ''
+        match = self.VALID_VIDEO_QUALITY_REGEX.match(quality.replace(' ', ''))
+        if match:
+            return quality.strip()
+        raise YouTubeDownloaderError(
+            f"Invalid video quality: {quality}",
+            hint="Valid examples: '720p', '1080p60', '720 HDR', '720p HDR'"
+        )
+
+    def _validate_audio_quality(self, quality: str) -> str:
+        if quality not in self.SUPPORTED_AUDIO_QUALITIES:
+            raise YouTubeDownloaderError(
+                f"Invalid audio quality: {quality}",
+                hint=f"Supported values: {', '.join(self.SUPPORTED_AUDIO_QUALITIES)}"
+            )
+        return quality
+
+    def _get_best_audio(self, audio_formats: List[Dict[str, Any]]) -> Optional[str]:
+        if not audio_formats:
+            return None
+        if self.audio_quality == 'best':
+            audio_formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
+            return audio_formats[0]['url']
+        audio_formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
+        return audio_formats[0]['url']
+
+    def _choose_video_format(self, video_formats: List[Dict[str, Any]]) -> Dict[str, Any]:
+        grouped: Dict[int, List[Dict[str, Any]]] = {}
+        for f in video_formats:
+            res = f.get('height') or 0
+            grouped.setdefault(res, []).append(f)
+
+        desired_height: Optional[int] = None
+        if self.video_quality:
+            vq = self._validate_video_quality(self.video_quality)
+            desired_height = int(re.search(r'\d{3,4}', vq).group())
+
+        available_heights = sorted(grouped.keys())
+        if not available_heights:
+            raise YouTubeDownloaderError(
+                "No available video formats",
+                hint="Check if the video URL is correct and the video is accessible."
+            )
+
+        chosen_height: int
+        if desired_height:
+            if desired_height in available_heights:
+                chosen_height = desired_height
+            else:
+                higher = [h for h in available_heights if h > desired_height]
+                lower = [h for h in available_heights if h < desired_height]
+                if lower:
+                    chosen_height = max(lower)
+                elif higher:
+                    chosen_height = min(higher)
+                else:
+                    chosen_height = max(available_heights)
+        else:
+            chosen_height = max(available_heights)
+
+        group = grouped[chosen_height]
+        group.sort(key=lambda x: (x.get('fps', 0), x.get('tbr', 0)), reverse=True)
+        return group[0]
+
+    async def _run_ffmpeg_merge(self, video_path: str, audio_path: str, output_path: str) -> None:
+        """Asynchronously merge video and audio using ffmpeg."""
+        if not shutil.which("ffmpeg"):
+            raise YouTubeDownloaderError(
+                "ffmpeg not found",
+                hint="Install ffmpeg and add it to PATH for combining video and audio."
+            )
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", video_path, "-i", audio_path, "-c:v", "copy", "-c:a", "aac", output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            raise YouTubeDownloaderError(f"ffmpeg merge failed:\n{stderr.decode()}")
+
+    async def download(self) -> None:
+        """Download video and audio asynchronously and optionally combine."""
+        try:
+            ydl_opts: Dict[str, Any] = {}
+            if not self.enable_logs:
+                ydl_opts['quiet'] = True
+
+            self.info = await asyncio.to_thread(lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(self.video_url, download=False))
+            formats: List[Dict[str, Any]] = self.info.get('formats', [])
+
+            video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('format_note') != 'storyboard']
+            audio_formats = [f for f in formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
+
+            if not video_formats:
+                raise YouTubeDownloaderError("No video formats available", hint="Check the video URL")
+
+            self._validate_audio_quality(self.audio_quality)
+            best_audio_url = self._get_best_audio(audio_formats)
+
+            best_video = self._choose_video_format(video_formats)
+            has_audio = best_video.get('acodec') != 'none'
+            combined = has_audio or self.force_combined
+
+            video_entry: Dict[str, Union[str, bool]] = {
+                "video_url": best_video['url'],
+                "quality": best_video.get('format_note') or f"{best_video.get('height', 'unknown')}p",
+                "combined": combined
+            }
+
+            if not has_audio or self.force_combined:
+                if audio_formats:
+                    video_entry["audio_hdplay"] = self._get_best_audio(audio_formats)
+
+            self.result = {
+                "videos": [video_entry],
+                "audio_hdplay": best_audio_url,
+                "meta": {
+                    "title": self.info.get('title'),
+                    "views": self.info.get('view_count'),
+                    "uploader": self.info.get('uploader'),
+                    "duration": self.info.get('duration'),
+                    "description": self.info.get('description'),
+                    "best_audio_url": best_audio_url,
+                    "thumbnail": self.info.get('thumbnail')
+                }
+            }
+
+            if self.auto_download:
+                await asyncio.to_thread(self._download_video, best_video, audio_formats, combined)
+
+        except YouTubeDownloaderError as e:
+            print(f"[ERROR] {e}")
+            if e.hint:
+                print(f"[HINT] {e.hint}")
+        except Exception as e:
+            print(f"[ERROR] Unexpected error: {e}")
+            print(f"[HINT] Check the video URL and ensure ffmpeg is installed if combining streams.")
+
+    def _download_video(self, best_video: Dict[str, Any], audio_formats: List[Dict[str, Any]], combined: bool) -> None:
+        """Synchronous helper to download video/audio using yt-dlp in a thread."""
+        ydl_opts: Dict[str, Any] = {}
+        if not combined and audio_formats:
+            ydl_opts['format'] = f"{best_video['format_id']}+{audio_formats[0]['format_id']}"
+        else:
+            ydl_opts['format'] = best_video['format_id']
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([self.video_url])
+
+    def get_json(self) -> str:
+        """Return the download info and metadata as UTF-8 JSON."""
+        return json.dumps(self.result, indent=4, ensure_ascii=False)
+
+
 @loader.tds
 class MediaDownloaderMod(loader.Module):
     """👑 Multimedia Loader"""
@@ -313,7 +502,7 @@ class MediaDownloaderMod(loader.Module):
         )
 
     async def check_update_status(self):
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py"
+        metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
 
         try:
             module = sys.modules[__name__]
@@ -462,9 +651,10 @@ class MediaDownloaderMod(loader.Module):
             )
         )
         
-    @loader.command(ru_doc="Скачать видео из TikTok.\nИспользование: .tikload <ссылка>.",
-                    en_doc="Download TikTok video.\nUsage: .tikload <link>.",
-                    ua_doc="Завантажити відео із TikTok.\nВикористання: .tikload <посилання>.")
+# Command to download TikTok media
+    @loader.command(ru_doc="Скачать медиа из TikTok.\nИспользование: .tikload <ссылка>.",
+                    en_doc="Download TikTok media.\nUsage: .tikload <link>.",
+                    ua_doc="Завантажити медіа із TikTok.\nВикористання: .tikload <посилання>.")
     async def tikloadcmd(self, message: Message):
         """This command download a TikTok mediafiles."""
         args = utils.get_args_raw(message)
@@ -500,7 +690,7 @@ class MediaDownloaderMod(loader.Module):
             return
 
         if media_type == "video":
-            api_url = f"https://tiktok-downloader.apis-bj-devs.workers.dev?url={original_url}"
+            api_url = f"https://www.tikwm.com/api/?url={original_url}"
             data = None
             try:
                 async with aiohttp.ClientSession() as session:
@@ -513,47 +703,20 @@ class MediaDownloaderMod(loader.Module):
                 await utils.answer(message, self.strings["api_exception"].format(e))
                 return
 
-            if not data or not data.get("success"):
+            if not data or not data.get("data"):
                 await utils.answer(message, self.strings["tiktok_api_fail"])
                 return
 
-            video_data = None
-            quality = ""
-            preferred = ["download_video_hd", "download_video_480p"]
-            if not self.config["force_hd"]:
-                preferred.reverse()
-
-            for q in preferred:
-                for item in data.get("downloads", []):
-                    if item["type"] == q:
-                        video_data = item
-                        quality = "hd" if "hd" in q else "sd"
-                        break
-                if video_data:
-                    break
-
-            if not video_data and not self.config["force_hd"]:
-                fallback_url = f"https://tele-social.vercel.app/down?url={original_url}"
-                try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(fallback_url) as resp:
-                            if resp.status == 200:
-                                alt_data = await resp.json()
-                                if alt_data.get("status") and "video" in alt_data.get("data", {}):
-                                    video_data = {"url": alt_data["data"]["video"]}
-                                    quality = "sd"
-                except Exception:
-                    pass
-
-            if not video_data:
+            video_url = data.get("data", {}).get("play", "")
+            if not video_url:
                 await utils.answer(message, self.strings["tiktok_no_video"])
                 return
 
-            await utils.answer(message, self.strings["downloading_hd"] if quality == "hd" else self.strings["downloading_sd"])
+            await utils.answer(message, self.strings["downloading_hd"])
 
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(video_data["url"]) as resp:
+                    async with session.get(video_url) as resp:
                         if resp.status != 200:
                             await utils.answer(message, self.strings["download_error"].format(resp.status))
                             return
@@ -565,8 +728,9 @@ class MediaDownloaderMod(loader.Module):
             video_stream = io.BytesIO(video_bytes)
             video_stream.name = "video.mp4"
 
-            username = data.get("username", "unknown")
-            nickname = data.get("author", "Unknown")
+            author_info = data.get("data", {}).get("author", {})
+            username = author_info.get("unique_id", "unknown")
+            nickname = author_info.get("nickname", "Unknown")
             author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
 
             caption = self.strings["tiktok_success_hd"].format(username=username, nickname=nickname, original_url=original_url, author=author)
@@ -583,7 +747,7 @@ class MediaDownloaderMod(loader.Module):
             return
 
         elif media_type == "photo":
-            api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/photo/{media_id}"
+            api_url = f"https://www.tikwm.com/api/?url=https://www.tiktok.com/photo/{media_id}"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(api_url) as resp:
@@ -635,6 +799,7 @@ class MediaDownloaderMod(loader.Module):
                 parse_mode="HTML"
             )
             return
+
 
     @loader.command(
         ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>.",
@@ -841,9 +1006,11 @@ class MediaDownloaderMod(loader.Module):
         finally:
             os.remove(tmp_file_path)
 
-    @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.", ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <ссылка>.", ua_doc="Завантажити відео з YouTube.\nВикористання: .ytlh <посилання>.")
+    @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.",
+                    ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <ссылка>.",
+                    ua_doc="Завантажити відео з YouTube.\nВикористання: .ytlh <посилання>.")
     async def ytlhcmd(self, message: Message):
-        """Load YouTube video as link."""
+        """Load YouTube video via yt-dlp."""
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings("yargs"))
@@ -854,97 +1021,124 @@ class MediaDownloaderMod(loader.Module):
             return
 
         m = await utils.answer(message, self.strings("yuploading"))
-        API_URL = "https://gpt76.vercel.app/download"
-        
-        video_file, audio_file, output_file = None, None, None
-        
+
+        video_file = None
+        audio_file = None
+        output_file = None
+        thumb_file = None
+
         try:
-            timeout = aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=2000)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                data = await self._fetch_json(session, API_URL, {"url": args})
-                
-                if not data.get("success"):
-                    error_msg = data.get("error", "Unknown error")
-                    await utils.answer(m, self.strings("yapi_error").format(error_msg))
-                    return
-                    
-                medias = data.get("medias", [])
-                if not medias:
-                    await utils.answer(m, self.strings("yno_media"))
-                    return
-                
-                video_streams = [
-                    m for m in medias 
-                    if m["type"] == "video" 
-                    and not m.get("audioQuality")
-                    and self._is_resolution_allowed(m)
-                ]
-                
-                if not video_streams and not self.config["allow_high_res"]:
-                    video_streams = [
-                        m for m in medias 
-                        if m["type"] == "video" 
-                        and not m.get("audioQuality")
-                    ]
-                    video_streams = [v for v in video_streams if self._is_resolution_allowed(v)]
-                    pref = self.get_prefix()
-                    if not video_streams:
-                        await utils.answer(m, self.strings("yno_allowed_res").format(pref=pref))
-                        return
-                
-                audio_streams = [m for m in medias if m["type"] == "audio"]
-                
-                if not video_streams or not audio_streams:
-                    await utils.answer(m, self.strings("yno_media"))
-                    return
-                
-                video_stream = max(
-                    video_streams,
-                    key=lambda x: (x.get("height", 0), x.get("bitrate", 0))
-                )
-                
-                audio_stream = max(
-                    audio_streams,
-                    key=lambda x: x.get("bitrate", 0)
-                )
-                ytitle = data.get("title")
-                yurl = data.get("url")
-                title = "".join(c for c in data["title"] if c.isalnum() or c in " _-")
-                video_file = f"{title}_video.{video_stream.get('ext', 'mp4')}"
-                audio_file = f"{title}_audio.{audio_stream.get('ext', 'm4a')}"
-                output_file = f"{title}.mp4"
-                await self._download_file(session, video_stream["url"], video_file)
-                await self._download_file(session, audio_stream["url"], audio_file)
-                
-                retcode = await self._merge_video_audio(video_file, audio_file, output_file)
-                
-                if retcode != 0:
-                    log.error(f"FFmpeg back code err: {retcode}.")
-                    await utils.answer(m, self.strings("ffmpeg_berror").format(retcode=retcode))
-                    
-                if not self.config["show_ytname"]:
-                    await message.client.send_file(
-                    message.peer_id,
-                    output_file,
-                    caption=self.strings("ysuccessm"),
-                    reply_to=message.reply_to_msg_id
-                    )
+            # init downloader
+            allow_high_res = self.config.get("allow_high_res", False)
+            downloader = AsyncYouTubeDownloader(
+                video_url=args,
+                enable_logs=False,
+                auto_download=False,
+            )
+            await downloader.download()
+
+            info = downloader.result
+            videos = info.get("videos", [])
+            meta = info.get("meta", {})
+            ytitle = meta.get("title")
+            yurl = args
+            thumbnail_url = meta.get("thumbnail")
+
+            if not videos:
+                await utils.answer(m, self.strings("yno_media"))
+                return
+
+            def extract_height(q: str) -> int:
+                try:
+                    match = re.search(r"\d+", q or "")
+                    return int(match.group()) if match else 0
+                except Exception:
+                    return 0
+
+            selected_video = None
+            if allow_high_res:
+                high_res = [v for v in videos if extract_height(v.get("quality", "")) >= 1440]
+                if high_res:
+                    selected_video = max(high_res, key=lambda x: extract_height(x.get("quality", "")))
                 else:
-                    await message.client.send_file(
-                    message.peer_id,
+                    selected_video = max(videos, key=lambda x: extract_height(x.get("quality", "")))
+            else:
+                filtered = [v for v in videos if extract_height(v.get("quality", "")) <= 1080]
+                if not filtered:
+                    filtered = videos
+                selected_video = max(filtered, key=lambda x: extract_height(x.get("quality", "")))
+
+            video_url = selected_video.get("video_url")
+            audio_url = selected_video.get("audio_hdplay")
+            if not video_url:
+                await utils.answer(m, self.strings("yno_media"))
+                return
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(video_url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"Video download failed with status {resp.status}")
+                    video_bytes = await resp.read()
+
+                if audio_url:
+                    async with session.get(audio_url) as resp:
+                        if resp.status != 200:
+                            raise Exception(f"Audio download failed with status {resp.status}")
+                        audio_bytes = await resp.read()
+
+                thumb_bytes = None
+                if thumbnail_url:
+                    try:
+                        async with session.get(thumbnail_url) as resp:
+                            if resp.status == 200:
+                                thumb_bytes = await resp.read()
+                    except Exception:
+                        thumb_bytes = None
+
+            video_file = f"yt_video.mp4"
+            with open(video_file, "wb") as f:
+                f.write(video_bytes)
+
+            if audio_url and audio_bytes:
+                audio_file = f"yt_audio.m4a"
+                with open(audio_file, "wb") as f:
+                    f.write(audio_bytes)
+
+                output_file = f"yt_merged.mp4"
+                process = await asyncio.create_subprocess_exec(
+                    "ffmpeg", "-y", "-i", video_file, "-i", audio_file,
+                    "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart",
                     output_file,
-                    caption=self.strings("ysuccess").format(ytitle=ytitle, yurl=yurl),
-                    reply_to = message.reply_to_msg_id
-                    )
-                await m.delete()
-        except ConnectionResetByPeer as e:
-            log.error(f"YTLH error: {e} (104).")
-            await utils.answer(m, self.strings["econnreset"])
-    
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                )
+                stdout, stderr = await process.communicate()
+                if process.returncode != 0:
+                    raise Exception(f"FFmpeg merge failed: {stderr.decode()}")
+
+                send_file = output_file
+            else:
+                send_file = video_file
+
+            thumb_stream = io.BytesIO(thumb_bytes) if thumb_bytes else None
+            if thumb_stream:
+                thumb_stream.name = "thumb.jpg"
+
+            caption = self.strings("ysuccess").format(ytitle=ytitle, yurl=yurl)
+
+            await message.client.send_file(
+                message.peer_id,
+                send_file,
+                caption=caption,
+                reply_to=message.reply_to_msg_id,
+                thumb=thumb_stream
+            )
+
+            await m.delete()
+
         except Exception as e:
             log.error(f"YTLH error: {e}")
             await utils.answer(m, self.strings("yerror").format(str(e)))
-        
+
         finally:
             for file in [video_file, audio_file, output_file]:
                 if file and os.path.exists(file):
@@ -963,7 +1157,7 @@ class MediaDownloaderMod(loader.Module):
         """This command check module updates."""
         pref = self.get_prefix()
         
-        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py"
+        metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
 
         try:
             module = sys.modules[__name__]
@@ -1012,13 +1206,17 @@ class MediaDownloaderMod(loader.Module):
 
             async def check_tiktok():
                 try:
-                    async with session.get("https://tiktok-downloader.apis-bj-devs.workers.dev?url=https://vm.tiktok.com/ZMAdr1fRH/") as r:
+                    test_url = "https://www.tiktok.com/@4wizz_kg/video/7550405003010149639"
+                    api_url = f"https://www.tikwm.com/api/?url={test_url}"
+                    async with session.get(api_url) as r:
+                        if r.status != 200:
+                            return "<emoji document_id=5278578973595427038>🚫</emoji>"
                         data = await r.json()
-                        downloads = data.get("downloads", [])
-                        return "<emoji document_id=5278411813468269386>✔️</emoji>" if any(d.get("type") == "download_video_hd" for d in downloads) else "<emoji document_id=5278578973595427038>🚫</emoji>"
+                        video_url = data.get("data", {}).get("play", "")
+                        return "<emoji document_id=5278411813468269386>✔️</emoji>" if video_url else "<emoji document_id=5278578973595427038>🚫</emoji>"
                 except Exception as e:
+                    log.error(f"TikTok status checking error: {e}")
                     return "🚫 ERROR. More info in logs."
-                    log.error(e)
 
             async def check_spotify():
                 try:
@@ -1028,7 +1226,7 @@ class MediaDownloaderMod(loader.Module):
                         return "<emoji document_id=5278411813468269386>✔️</emoji>" if dl_link else "<emoji document_id=5278578973595427038>🚫</emoji>"
                 except Exception as e:
                     return "<b>🚫 ERROR. More info in logs.</b>"
-                    log.error(e)
+                    log.error(f"Spotify status checking error: {e}")
 
             async def check_telegram_story():
                 try:
@@ -1040,7 +1238,7 @@ class MediaDownloaderMod(loader.Module):
                             return "<emoji document_id=5278578973595427038>🚫</emoji>"
                 except Exception as e:
                     return "🚫 ERROR. More info in logs."
-                    log.error(e)
+                    log.error(f"Telegram story status checking error: {e}")
 
             tiktok_status, spotify_status, tg_status = await asyncio.gather(
                 check_tiktok(), check_spotify(), check_telegram_story()
