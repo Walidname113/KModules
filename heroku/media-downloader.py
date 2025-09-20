@@ -1,4 +1,4 @@
-__version__ = (1, 2, 9)
+__version__ = (1, 3, 0)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -7,11 +7,11 @@ __version__ = (1, 2, 9)
 # This code is provided "as is", without warranty of any kind.
 # -------------------------------------------------
 # meta developer: @KiyatsukaModules
-# requires: aiohttp mutagen python-ffmpeg yt_dlp
+# requires: aiohttp mutagen python-ffmpeg yt_dlp instaloader
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.2.9 change-log: [BETA] This update brings a rework of tikload, ytlh for better use. Also in this update there are bug fixes and improvements.
+# changelog: 1.3.0 change-log: [BETA] Fixing a lot of bugs, fixing critical bugs, improvements, adding playlist downloads from spotify, adding instagram story uploads via the instload command.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -31,6 +31,9 @@ import json
 import shutil
 from typing import Any, Dict, List, Optional, Union
 import yt_dlp
+import zipfile
+import instaloader
+from instaloader import Instaloader, Post
 
 log = logging.getLogger("Media-Downloader")
 
@@ -194,6 +197,7 @@ class AsyncYouTubeDownloader:
                 "meta": {
                     "title": self.info.get('title'),
                     "views": self.info.get('view_count'),
+                    "uploader_id": self.info.get('uploader_id'),
                     "uploader": self.info.get('uploader'),
                     "duration": self.info.get('duration'),
                     "description": self.info.get('description'),
@@ -227,10 +231,34 @@ class AsyncYouTubeDownloader:
         """Return the download info and metadata as UTF-8 JSON."""
         return json.dumps(self.result, indent=4, ensure_ascii=False)
 
+class InstaReelMeta:
+    def __init__(self):
+        self.L = instaloader.Instaloader(
+            download_pictures=False,
+            download_videos=False,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            compress_json=False
+        )
+
+    def get_author(self, url: str) -> str:
+        shortcode = url.strip("/").split("/")[-1]
+        post = instaloader.Post.from_shortcode(self.L.context, shortcode)
+        profile = post.owner_profile
+
+        data = {
+            "author": {
+                "username": profile.username,
+                "full_name": profile.full_name
+            }
+        }
+        return json.dumps(data, ensure_ascii=False, indent=2)
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
-    """👑 Multimedia Loader"""
+    """👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD."""
 
     strings = {
         "name": "Media-Downloader",
@@ -258,9 +286,9 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Video succesfully downloaded!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Video succesfully downloaded!",
         "cfg_show_tiktok_info": "Show author and link for TikTok message caption.",
-        "cfg_show_spotify_link": "Show link for Spotify caption message.",
-        "cfg_force_hd": "Always download HD (if available).",
-        "auto_update_ch": "Autoupdate module when new versions.",
+        "cfg_show_spotify_link": "Show link for Spotify caption message after downloading track?",
+        "cfg_force_hd": "Always download HD from TikTok (if available)?",
+        "auto_update_ch": "Autoupdate module when new versions?",
         "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Please provide a username and story number.",
         "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Format: tgsload <username> <story_number>`",
         "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> The story number must be a positive integer.",
@@ -272,11 +300,11 @@ class MediaDownloaderMod(loader.Module):
         "success_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Story downloaded successfully!\n<emoji document_id=6039451237743595514>📎</emoji> <b>Story caption:</b> {caption}",
         "success_no_caption_tgs": "<emoji document_id=5318760565902947324>✅</emoji> Story downloaded successfully!",
         "downloading_tgs": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading story...",
-        "cfg_show_caption_tgs": "Display captions for downloaded stories.",
-        "cfg_filter_links": "Filter out links in story captions.",
+        "cfg_show_caption_tgs": "Display captions for downloaded stories?",
+        "cfg_filter_links": "Filter out links in story captions?",
         "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg is not installed on the system. Install it <a href='https://t.me/hikka_talks/631886'>via this link</a>.",
         "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> API error: <code>{}</code>.",
-        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!",
+        "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Author: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[May take a while]</b> | Uploading result...",
         "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Error: <code>{}</code>.",
@@ -286,15 +314,26 @@ class MediaDownloaderMod(loader.Module):
         "config_allow_high_res": "Allow downloading >1080p60 | WARNING: If your device does not support more than 1080p, enabling this setting makes no sense.",
         "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>BETA version warning!</b>\n\n<blockquote>All commands labeled <b>BETA/ALPHA/TEST</b> are potentially unstable. This means these commands may often cause errors, malfunction, or not work at all, and sometimes even <b>break the entire module</b>. If you want to avoid this, it is advised to stop using these commands and wait until they are stable. Beta versions are released only after testing, so errors causing total module failure are <b>almost always excluded</b>, but there is no guarantee they won’t occur.</blockquote>",
         "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Server closed connection (104). Possible solution: Enable blocking of video up to 1080p60 in module config (<code>allow_high_res</code>), if it does not help: check the speed of the Internet connection.",
-        "show_ytdlh_vname": "Show the title of a YouTube video when it is loaded?",
+        "show_ytdlh_vname": "Show the title of a YouTube video/author when it is loaded?",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
         "rrs": "[Useful] Channel with information about modules from the developer.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py</code>.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram Story API status: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram Story API status: {tg_status}",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Photo successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> photo...",
-         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {}. Try again. This should help."
+         "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> API request error: {}. Try again. This should help.",
+         "too_bigyt": "<emoji document_id=5276240711795107620>⚠️</emoji> Your video is too large to upload to this chat. Your video is in this ZIP archive, extract it to watch!",
+         "spot_playlist": "<emoji document_id=5318760565902947324>✅</emoji> Playlist {safe_name} has been successfully downloaded, unzip the ZIP archive to get the tracks.\n<emoji document_id=5278305362703835500>🔗</emoji> {user_url}.",
+         "spot_plload": "<emoji document_id=5276220667182736079>⬇️</emoji> Loading your playlist: {safe_name}...",
+         "show_ph_info": "Show a info of video (link, author) after downloading photo of TikTok?",
+         "succesfully_ph_minimal": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Photo successfully downloaded!",
+         "instload": "<emoji document_id=5276220667182736079>⬇️</emoji> Loading story...",
+         "noInst_data": "<emoji document_id=5278578973595427038>🚫</emoji> Download error: the loader did not return the required data to download the story. Please try again later.",
+         "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Story(ies) successfully downloaded!\n<emoji document_id=5316578284429937362>👤</emoji> Author: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
+         "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Story(ies) successfully downloaded!",
+         "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> An unknown error occurred during download: <code>{e}</code>.",
+         "show_stfull": "Show author info + link to the story after downloading?"
     }
 
     strings_ru = {
@@ -334,14 +373,14 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Видео успешно загружено!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Видео успешно загружено!",
-        "cfg_show_tiktok_info": "Показывать автора и ссылку в TikTok.",
-        "cfg_show_spotify_link": "Показывать ссылку в Spotify.",
-        "cfg_force_hd": "Всегда загружать видео в HD (если доступно).",
-        "auto_update_ch": "Автообновлять модуль при новых версиях.",
-        "cfg_filter_links": "Фильтровать ли ссылки в описаниях к историям при их загрузке.",
+        "cfg_show_tiktok_info": "Показывать автора и ссылку при загрузке видео из TikTok?",
+        "cfg_show_spotify_link": "Показывать ли ссылку на трек при загрузке с Spotify?",
+        "cfg_force_hd": "Всегда загружать видео в HD из TikTok (если доступно)?",
+        "auto_update_ch": "Автообновлять модуль при новых версиях?",
+        "cfg_filter_links": "Фильтровать ли ссылки в описаниях к историям при их загрузке?",
         "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg не установлен в системе. Установите <a href='https://t.me/hikka_talks/631886'>по ссылке</a>.",
         "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка API: <code>{}</code>.",
-        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!",
+        "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Автор: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Может быть долго]</b> | Загружаю результат...",
         "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка: <code>{}</code>.",
@@ -352,14 +391,25 @@ class MediaDownloaderMod(loader.Module):
         "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Предупреждение о BETA-версиях!</b>\n\n<blockquote>Все команды, которые имеют инициалы <b>BETA/ALPHA/TEST</b> — потенциально нестабильны. Это значит, что эти команды могут часто вызывать ошибки или неправильно работать, или вовсе не работать, а иногда и вообще <b>сломать работу всего модуля</b>. Если вы не хотите этого, советуется больше не использовать эти команды, и ждать пока они будут стабильно реализованы. Бета версии выходят только после их тестирования, так что ошибки по типу полной поломки модуля <b>почти всегда исключены</b>, но нету гарантии что их не будет.</blockquote>",
         "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Сервер закрыл соединение (104). Возможные решения: Включить блокировку максимального качества загрузки видео в 1080р60 в конфиге модуля (<code>allow_high_res</code>), если не помогает, то проверить скорость интернета. Скорее всего, видео слишком долгое/качественное, от чего занимает слишком много места.",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
-        "show_ytdlh_vname": "Показывать ли название видео при загрузке с YouTube?",
+        "show_ytdlh_vname": "Показывать ли название видео/автора при загрузке с YouTube?",
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py</code>.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story загрузчика: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story загрузчика: {tg_status}",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успешно загружены!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>", 
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю <b>HD</b> фото...",
-        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}. Попробуйте снова. Это должно помочь."
+        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка при запросе к API. Статус: {}. Попробуйте снова. Это должно помочь.",
+        "too_bigyt": "<emoji document_id=5276240711795107620>⚠️</emoji> Ваше видео слишком большое, чтобы загрузить его в этот чат. В этом ZIP-архиве ваше видео, распакуйте, чтобы его посмотреть!",
+        "spot_playlist": "<emoji document_id=5318760565902947324>✅</emoji> Плейлист {safe_name} загружен успешно, распакуйте ZIP-архив, чтобы получить треки.\n<emoji document_id=5278305362703835500>🔗</emoji> {user_url}.",
+        "spot_plload": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю твой плейлист: {safe_name}...",
+        "show_ph_info": "Показывать ли информацию о видео (автор, ссылка) после загрузки фото из TikTok?",
+        "ph_succesfully_minimal": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успешно загружены!",
+        "instload": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю сторис...",
+        "noInst_data": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка загрузки: загрузчик не вернул нужных данных для загрузки сториса. Попробуйте снова позже.",
+        "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Сторис(-ы) успешно загружен(-ы)!\n<emoji document_id=5316578284429937362>👤</emoji> Автор: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
+        "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторис(-ы) успешно загружен(-ы)!",
+        "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> При загрузке произошла неизвестная ошибка: <code>{e}</code>.",
+        "show_stfull": "Показывать информацию об авторе + ссылку на сторис после загрузки?"        
     }
 
     strings_ua = {
@@ -399,14 +449,14 @@ class MediaDownloaderMod(loader.Module):
         "tiktok_success_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "tiktok_success_minimal_hd": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Відео успішно завантажено!",
         "tiktok_success_minimal_sd": "<emoji document_id=5318760565902947324>✅</emoji> Відео успішно завантажено!",
-        "cfg_show_tiktok_info": "Показувати автора та посилання в TikTok.",
-        "cfg_show_spotify_link": "Показувати посилання в Spotify.",
-        "cfg_force_hd": "Завжди завантажувати відео в HD (якщо доступно).",
-        "auto_update_ch": "Автоматично оновлювати модуль при нових версіях.",
-        "cfg_filter_links": "Фільтрувати посилання в описах до історій при їх завантаженні.",
+        "cfg_show_tiktok_info": "Показувати автора та посилання після завантаженнія відео із TikTok?",
+        "cfg_show_spotify_link": "Показувати посилання на трек після завантаження із Spotify?",
+        "cfg_force_hd": "Завжди завантажувати відео в HD з TikTok (якщо доступно)?",
+        "auto_update_ch": "Автоматично оновлювати модуль при нових версіях?",
+        "cfg_filter_links": "Чи фільтрувати посилання в описах до історій при їх завантаженні?",
         "ffmpeg_missing": "<emoji document_id=5278578973595427038>🚫</emoji> FFmpeg не встановлено в системі. Встановіть <a href='https://t.me/hikka_talks/631886'>за посиланням</a>.",
         "yapi_error": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка API: <code>{}</code>.",
-        "ysuccess": "<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n\n<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!",
+        "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Автор: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Може бути довго]</b> | Завантажую результат...",
         "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка: <code>{}</code>.",
@@ -417,14 +467,25 @@ class MediaDownloaderMod(loader.Module):
         "whybeta": "<emoji document_id=5276240711795107620>⚠️</emoji> <b>Попередження про BETA-версії!</b>\n\n<blockquote>Усі команди, які мають ініціали <b>BETA/ALPHA/TEST</b> — потенційно нестабільні. Це означає, що ці команди можуть часто викликати помилки або працювати неправильно, або взагалі не працювати, а іноді і зовсім <b>зламати роботу всього модуля</b>. Якщо ви цього не хочете, рекомендується більше не використовувати ці команди і чекати, поки вони будуть стабільно реалізовані. Бета-версії виходять тільки після тестування, тому помилки на кшталт повного зламу модуля <b>майже завжди виключені</b>, але гарантій немає.</blockquote>",
         "econnreset": "<emoji document_id=5278578973595427038>🚫</emoji> Сервер закрив з’єднання (104). Можливі рішення: Увімкнути блокування максимального якості завантаження відео в 1080p60 у конфігурації модуля (<code>allow_high_res</code>), якщо не допомагає — перевірити швидкість інтернету. Швидше за все, відео надто довге/якісне, через що займає забагато місця.",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg повернув помилку: <code>{retcode}</code>.",
-        "show_ytdlh_vname": "Показувати назву відео при завантаженні з YouTube?",
+        "show_ytdlh_vname": "Показувати назву відео/автора при завантаженні з YouTube?",
         "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Ченджлог нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/heroku/Media-Downloader.py</code>.",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story завантажувача: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story завантажувача: {tg_status}",
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> фото...",
-        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}. Спробуйте ще раз. Це може допомогти."
+        "api_error_500": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API. Статус: {}. Спробуйте ще раз. Це може допомогти.",
+        "too_bigyt": "<emoji document_id=5276240711795107620>⚠️</emoji> Ваше відео занадто велике, щоб завантажити його в цей чат. У цьому ZIP-архіві ваше відео, розпакуйте його, щоб переглянути!",
+        "spot_playlist": "<emoji document_id=5318760565902947324>✅</emoji> Плейлист {safe_name} успішно завантажено, розпакуйте ZIP-архів, щоб отримати треки.\n<emoji document_id=5278305362703835500>🔗</emoji> {user_url}.",
+        "spot_plload": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую твій плейлист: {safe_name}...",
+        "show_ph_info": "Чи показувати автора/посилання на відео після завантажування фото з TikTok?",
+        "ph_succesfully_minimal": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успішно завантажено!",
+        "instload": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую сторіс...",
+        "noInst_data": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка завантаження: завантажувач не повернув потрібних даних для завантаження сторіс. Спробуйте пізніше.",
+        "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Сторіс(-и) успішно завантажені!\n<emoji document_id=5316578284429937362>👤</emoji> Автор: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
+        "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторіс(-и) успішно завантажені!",
+        "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> Під час завантаження сталася невідома помилка: <code>{e}</code>.",
+        "show_stfull": "Чи показувати інформацію про автора+посилання на сторіс після його завантаження?"
     }
     
     API_URL_TOKEN = "https://logkiya.netlify.app/.netlify/functions/tokenGen"
@@ -645,13 +706,24 @@ class MediaDownloaderMod(loader.Module):
             
             loader.ConfigValue(
                 "show_ytname",
-                False,
+                True,
                 doc=lambda: self.strings("show_ytdlh_vname"),
+                validator=loader.validators.Boolean()
+            ),
+            loader.ConfigValue(
+                "ph_success_info",
+                True,
+                doc=lambda: self.strings("show_ph_info"),
+                validator=loader.validators.Boolean()
+            ),
+            loader.ConfigValue(
+                "instfull",
+                True,
+                doc=lambda: self.strings("show_stfull"),
                 validator=loader.validators.Boolean()
             )
         )
-        
-# Command to download TikTok media
+
     @loader.command(ru_doc="Скачать медиа из TikTok.\nИспользование: .tikload <ссылка>.",
                     en_doc="Download TikTok media.\nUsage: .tikload <link>.",
                     ua_doc="Завантажити медіа із TikTok.\nВикористання: .tikload <посилання>.")
@@ -732,8 +804,8 @@ class MediaDownloaderMod(loader.Module):
             username = author_info.get("unique_id", "unknown")
             nickname = author_info.get("nickname", "Unknown")
             author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
-
-            caption = self.strings["tiktok_success_hd"].format(username=username, nickname=nickname, original_url=original_url, author=author)
+            
+            caption = self.strings["tiktok_success_hd"].format(username=username, nickname=nickname, original_url=original_url, author=author) if self.config["show_tiktok_info"] else self.strings["tiktok_success_minimal_hd"].format(username=username, nickname=nickname, original_url=original_url, author=author)
 
             await message.client.send_file(
                 message.chat_id,
@@ -789,7 +861,7 @@ class MediaDownloaderMod(loader.Module):
             nickname = author_info.get("nickname", "Unknown")
             author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
 
-            caption = self.strings["ph_succesfully"].format(username=username, nickname=nickname, original_url=original_url, author=author)
+            caption = self.strings["ph_succesfully"].format(username=username, nickname=nickname, original_url=original_url, author=author) if self.config["ph_success_info"] else self.strings["ph_succesfully_minimal"].format(username=username, nickname=nickname, original_url=original_url, author=author)
 
             await message.client.send_file(
                 message.chat_id,
@@ -798,118 +870,243 @@ class MediaDownloaderMod(loader.Module):
                 caption=caption,
                 parse_mode="HTML"
             )
-            return
-
-
+            return        
+                        
     @loader.command(
-        ru_doc="Скачать трек с Spotify.\nИспользование: .spot <ссылка>.",
-        en_doc="Download Spotify track.\nUsage: .spot <link>.",
-        ua_doc="Завантажити трек із Spotify.\nВикористання: .spot <посилання>."
+        ru_doc="Скачать трек или плейлист с Spotify.\nИспользование: .spot <ссылка>.",
+        en_doc="Download Spotify track or playlist.\nUsage: .spot <link>.",
+        ua_doc="Завантажити трек або плейлист із Spotify.\nВикористання: .spot <посилання>."
     )
     async def spotcmd(self, message: Message):
-        """This command downloads music from Spotify."""        
+        """Download Spotify track or playlist."""
+        import json
+
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings["no_url"])
             return
 
         user_url = args.strip()
-        api_url = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={user_url}"
-      # await utils.answer(message, self.strings["fetching"])
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(api_url) as resp:
-                    if resp.status != 200:
-                        await utils.answer(message, self.strings["api_error"].format(resp.status))
-                        return
-                    data = await resp.json()
-            except Exception as e:
-                await utils.answer(message, self.strings["api_exception"].format(e))
-                return
-
-        if not data.get("status"):
-            await utils.answer(message, self.strings["api_fail"])
+        if "/playlist/" in user_url:
+            is_playlist = True
+            playlist_id = user_url.split("/playlist/")[1].split("?")[0]
+        elif "/track/" in user_url:
+            is_playlist = False
+        else:
+            await utils.answer(message, self.strings["invalid_data"].format("URL", "unknown"))
             return
 
-        track_data = data.get("data", {})
-        download_link = track_data.get("downloadLink")
-        img_url = track_data.get("imgUrl")
+        if not is_playlist:
+            api_url = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={user_url}"
 
-        if not isinstance(download_link, str) or not isinstance(img_url, str):
-            await utils.answer(
-                message, 
-                self.strings["invalid_data"].format(download_link, img_url)
-            )
-            return
-
-        await utils.answer(message, self.strings["downloading"])
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            mp3_path = os.path.join(tmpdir, "track.mp3")
-            img_path = os.path.join(tmpdir, "cover.jpg")
-
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(download_link) as resp:
-                        if resp.status != 200:
-                            await utils.answer(
-                                message,
-                                self.strings["download_error"].format(resp.status)
-                            )
-                            return
-                        with open(mp3_path, "wb") as f:
-                            f.write(await resp.read())
-
-                    async with session.get(img_url) as resp:
-                        if resp.status != 200:
-                            await utils.answer(
-                                message,
-                                self.strings["image_error"].format(resp.status)
-                            )
-                            return
-                        with open(img_path, "wb") as f:
-                            f.write(await resp.read())
-            except Exception as e:
-                await utils.answer(message, self.strings["file_error"].format(e))
-                return
-
-            try:
-                audio = MP3(mp3_path, ID3=ID3)
+            async with aiohttp.ClientSession() as session:
                 try:
-                    audio.add_tags()
+                    async with session.get(api_url) as resp:
+                        if resp.status != 200:
+                            await utils.answer(message, self.strings["api_error"].format(resp.status))
+                            return
+                        data = await resp.json()
+                except Exception as e:
+                    await utils.answer(message, self.strings["api_exception"].format(e))
+                    return
+
+            if not data.get("status"):
+                await utils.answer(message, self.strings["api_fail"])
+                return
+
+            track_data = data.get("data", {})
+            download_link = track_data.get("downloadLink")
+            img_url = track_data.get("imgUrl")
+
+            if not isinstance(download_link, str):
+                await utils.answer(message, self.strings["invalid_data"].format(download_link, img_url))
+                return
+
+            await utils.answer(message, self.strings["downloading"])
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                mp3_path = os.path.join(tmpdir, "track.mp3")
+                img_path = os.path.join(tmpdir, "cover.jpg")
+
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(download_link) as resp:
+                            if resp.status != 200:
+                                await utils.answer(message, self.strings["download_error"].format(resp.status))
+                                return
+                            with open(mp3_path, "wb") as f:
+                                f.write(await resp.read())
+
+                        if isinstance(img_url, str):
+                            async with session.get(img_url) as resp:
+                                if resp.status == 200:
+                                    with open(img_path, "wb") as f:
+                                        f.write(await resp.read())
+                except Exception as e:
+                    await utils.answer(message, self.strings["file_error"].format(e))
+                    return
+
+                try:
+                    audio = MP3(mp3_path, ID3=ID3)
+                    try:
+                        audio.add_tags()
+                    except Exception:
+                        pass
+
+                    if os.path.exists(img_path):
+                        with open(img_path, 'rb') as albumart:
+                            audio.tags.add(
+                                APIC(
+                                    encoding=3,
+                                    mime='image/jpeg',
+                                    type=3,
+                                    desc='Cover',
+                                    data=albumart.read()
+                                )
+                            )
+                    audio.save()
                 except Exception:
                     pass
 
-                with open(img_path, 'rb') as albumart:
-                    audio.tags.add(
-                        APIC(
-                            encoding=3,
-                            mime='image/jpeg',
-                            type=3,
-                            desc='Cover',
-                            data=albumart.read()
-                        )
-                    )
-                audio.save()
-            except Exception as e:
-                await utils.answer(message, self.strings["tag_error"].format(e))
+                caption = (
+                    self.strings["done_caption"].format(user_url)
+                    if self.config["show_spotify_link"]
+                    else self.strings["done_caption_minimal"]
+                )
+
+                await message.client.send_file(
+                    message.chat_id,
+                    mp3_path,
+                    caption=caption,
+                    reply_to=message.id,
+                    parse_mode='HTML',
+                    voice_note=False,
+                )
+
+        else:
+            api_url = f"https://logkiya.netlify.app/.netlify/functions/spot-playlister?id={playlist_id}"
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(api_url) as resp:
+                        if resp.status != 200:
+                            await utils.answer(message, self.strings["api_error"].format(resp.status))
+                            return
+                        raw_text = await resp.text()
+                        playlist_data = json.loads(raw_text)
+                except Exception as e:
+                    await utils.answer(message, self.strings["api_exception"].format(e))
+                    return
+
+            playlist_name = playlist_data.get("meta", {}).get("playlistName", "playlist")
+            tracks = playlist_data.get("tracks", [])
+
+            if not tracks:
+                await utils.answer(message, self.strings["api_fail"])
                 return
 
-            caption = (
-                self.strings["done_caption"].format(user_url) 
-                if self.config["show_spotify_link"] 
-                else self.strings["done_caption_minimal"]
-            )
+            safe_name = "".join(c for c in playlist_name if c.isalnum() or c in (" ", "_", "-")).rstrip()
+            await utils.answer(message, self.strings["spot_plload"].format(safe_name=safe_name))
 
-            await message.client.send_file(
-                message.chat_id,
-                mp3_path,
-                caption=caption,
-                reply_to=message.id,
-                parse_mode='HTML',
-                voice_note=False,
-            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                zip_path = os.path.join(tmpdir, f"{safe_name}.zip")
+                not_loaded = []
+
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    for i, track in enumerate(tracks, 1):
+                        track_url = track.get("trackUrl")
+                        track_name = track.get("trackName", f"track_{i}")
+                        if not track_url:
+                            not_loaded.append(f"{track_name} - missing trackUrl")
+                            continue
+
+                        track_api = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={track_url}"
+                        try:
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(track_api) as resp:
+                                    if resp.status != 200:
+                                        not_loaded.append(f"{track_name} - API HTTP {resp.status}")
+                                        continue
+                                    track_info = await resp.json()
+                        except Exception as e:
+                            not_loaded.append(f"{track_name} - API error {e}")
+                            continue
+
+                        if not track_info.get("status"):
+                            not_loaded.append(f"{track_name} - API returned no status")
+                            continue
+
+                        tdata = track_info.get("data", {})
+                        download_link = tdata.get("downloadLink")
+                        img_url = tdata.get("imgUrl")
+
+                        if not download_link:
+                            not_loaded.append(f"{track_name} - missing downloadLink")
+                            continue
+
+                        mp3_path = os.path.join(tmpdir, f"track_{i}.mp3")
+                        img_path = os.path.join(tmpdir, f"cover_{i}.jpg")
+
+                        try:
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(download_link) as resp:
+                                    if resp.status != 200:
+                                        not_loaded.append(f"{track_name} - download HTTP {resp.status}")
+                                        continue
+                                    with open(mp3_path, "wb") as f:
+                                        f.write(await resp.read())
+
+                                if img_url:
+                                    async with session.get(img_url) as resp:
+                                        if resp.status == 200:
+                                            with open(img_path, "wb") as f:
+                                                f.write(await resp.read())
+                        except Exception as e:
+                            not_loaded.append(f"{track_name} - download error {e}")
+                            continue
+
+                        try:
+                            audio = MP3(mp3_path, ID3=ID3)
+                            try:
+                                audio.add_tags()
+                            except Exception:
+                                pass
+                            if os.path.exists(img_path):
+                                with open(img_path, 'rb') as albumart:
+                                    audio.tags.add(
+                                        APIC(
+                                            encoding=3,
+                                            mime='image/jpeg',
+                                            type=3,
+                                            desc='Cover',
+                                            data=albumart.read()
+                                        )
+                                    )
+                            audio.save()
+                        except Exception as e:
+                            not_loaded.append(f"{track_name} - tagging error {e}")
+
+                        safe_track_name = "".join(c for c in track_name if c.isalnum() or c in (" ", "_", "-"))
+                        if not safe_track_name:
+                            safe_track_name = f"track_{i}"
+
+                        zipf.write(mp3_path, arcname=f"{safe_track_name}.mp3")
+
+                    if not_loaded:
+                        readme_path = os.path.join(tmpdir, "not_loaded_README.txt")
+                        with open(readme_path, "w", encoding="utf-8") as f:
+                            f.write("The following tracks were not loaded:\n\n")
+                            for line in not_loaded:
+                                f.write(line + "\n")
+                        zipf.write(readme_path, arcname="not_loaded_README.txt")
+
+                caption = self.strings["spot_playlist"].format(safe_name=safe_name, user_url=user_url)
+                await message.client.send_file(
+                    message.chat_id,
+                    zip_path,
+                    caption=caption,
+                    reply_to=message.id,
+                )
 
     @loader.command(
         ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <юзернейм> <номер_истории>.",
@@ -1008,9 +1205,10 @@ class MediaDownloaderMod(loader.Module):
 
     @loader.command(en_doc="Download YouTube video.\nUsage: .ytlh <link>.",
                     ru_doc="Загрузить видео с YouTube.\nИспользование: .ytlh <ссылка>.",
-                    ua_doc="Завантажити відео з YouTube.\nВикористання: .ytlh <посилання>.")
+                    ua_doc="Завантажити відео з YouTube.\nВикористання: .ytлення>")
     async def ytlhcmd(self, message: Message):
-        """Load YouTube video via yt-dlp."""
+        """Load YouTube video via yt-dlp with robust streaming and retry."""
+
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings("yargs"))
@@ -1025,7 +1223,6 @@ class MediaDownloaderMod(loader.Module):
         video_file = None
         audio_file = None
         output_file = None
-        thumb_file = None
 
         try:
             # init downloader
@@ -1041,6 +1238,9 @@ class MediaDownloaderMod(loader.Module):
             videos = info.get("videos", [])
             meta = info.get("meta", {})
             ytitle = meta.get("title")
+            uploader = meta.get("uploader")
+            uploader_id = meta.get("uploader_id")
+            author = f"<a href='https://youtube.com/{uploader_id}'>{uploader}</a>"
             yurl = args
             thumbnail_url = meta.get("thumbnail")
 
@@ -1058,15 +1258,10 @@ class MediaDownloaderMod(loader.Module):
             selected_video = None
             if allow_high_res:
                 high_res = [v for v in videos if extract_height(v.get("quality", "")) >= 1440]
-                if high_res:
-                    selected_video = max(high_res, key=lambda x: extract_height(x.get("quality", "")))
-                else:
-                    selected_video = max(videos, key=lambda x: extract_height(x.get("quality", "")))
+                selected_video = max(high_res or videos, key=lambda x: extract_height(x.get("quality", "")))
             else:
                 filtered = [v for v in videos if extract_height(v.get("quality", "")) <= 1080]
-                if not filtered:
-                    filtered = videos
-                selected_video = max(filtered, key=lambda x: extract_height(x.get("quality", "")))
+                selected_video = max(filtered or videos, key=lambda x: extract_height(x.get("quality", "")))
 
             video_url = selected_video.get("video_url")
             audio_url = selected_video.get("audio_hdplay")
@@ -1074,17 +1269,23 @@ class MediaDownloaderMod(loader.Module):
                 await utils.answer(m, self.strings("yno_media"))
                 return
 
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=None, connect=60, sock_read=120)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+
+                video_file = "yt_video.mp4"
                 async with session.get(video_url) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"Video download failed with status {resp.status}")
-                    video_bytes = await resp.read()
+                    resp.raise_for_status()
+                    with open(video_file, "wb") as f:
+                        async for chunk in resp.content.iter_chunked(1024 * 512):
+                            f.write(chunk)
 
                 if audio_url:
+                    audio_file = "yt_audio.m4a"
                     async with session.get(audio_url) as resp:
-                        if resp.status != 200:
-                            raise Exception(f"Audio download failed with status {resp.status}")
-                        audio_bytes = await resp.read()
+                        resp.raise_for_status()
+                        with open(audio_file, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(1024 * 256):
+                                f.write(chunk)
 
                 thumb_bytes = None
                 if thumbnail_url:
@@ -1095,16 +1296,8 @@ class MediaDownloaderMod(loader.Module):
                     except Exception:
                         thumb_bytes = None
 
-            video_file = f"yt_video.mp4"
-            with open(video_file, "wb") as f:
-                f.write(video_bytes)
-
-            if audio_url and audio_bytes:
-                audio_file = f"yt_audio.m4a"
-                with open(audio_file, "wb") as f:
-                    f.write(audio_bytes)
-
-                output_file = f"yt_merged.mp4"
+            if audio_file:
+                output_file = "yt_merged.mp4"
                 process = await asyncio.create_subprocess_exec(
                     "ffmpeg", "-y", "-i", video_file, "-i", audio_file,
                     "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart",
@@ -1114,16 +1307,23 @@ class MediaDownloaderMod(loader.Module):
                 stdout, stderr = await process.communicate()
                 if process.returncode != 0:
                     raise Exception(f"FFmpeg merge failed: {stderr.decode()}")
-
                 send_file = output_file
             else:
                 send_file = video_file
+
+            zip_sent = False
+            if os.path.getsize(send_file) > 2 * 1024 * 1024 * 1024:
+                zip_file = send_file + ".zip"
+                with zipfile.ZipFile(zip_file, "w", compression=zipfile.ZIP_STORED) as zf:
+                    zf.write(send_file, arcname=os.path.basename(send_file))
+                send_file = zip_file
+                zip_sent = True
 
             thumb_stream = io.BytesIO(thumb_bytes) if thumb_bytes else None
             if thumb_stream:
                 thumb_stream.name = "thumb.jpg"
 
-            caption = self.strings("ysuccess").format(ytitle=ytitle, yurl=yurl)
+            caption = self.strings["too_bigyt"] if zip_sent else (self.strings["ysuccessm"] if not self.config["show_ytname"] else self.strings["ysuccess"]).format(ytitle=ytitle, yurl=yurl, author=author)
 
             await message.client.send_file(
                 message.peer_id,
@@ -1135,12 +1335,12 @@ class MediaDownloaderMod(loader.Module):
 
             await m.delete()
 
-        except Exception as e:
-            log.error(f"YTLH error: {e}")
-            await utils.answer(m, self.strings("yerror").format(str(e)))
+        except Exception:
+            log.exception("YTLH full traceback")
+            await utils.answer(m, self.strings("yerror").format("Ошибка при скачивании видео. Смотрите лог для деталей."))
 
         finally:
-            for file in [video_file, audio_file, output_file]:
+            for file in [video_file, audio_file, output_file, 'yt_merged.mp4', 'yt_video.mp4', 'yt_audio.m4a']:
                 if file and os.path.exists(file):
                     try:
                         os.remove(file)
@@ -1152,11 +1352,89 @@ class MediaDownloaderMod(loader.Module):
 #        """BETA WARNING MESSAGE"""
 #        await utils.answer(m, self.strings("whybeta"))
 
+
+    @loader.command(
+        en_doc="Download Instagram story.\nUsage: .instload <link>",
+        ru_doc="Загрузить сторис из Instagram.\nИспользование: .instload <ссылка>",
+        ua_doc="Завантажити сторіс з Instagram.\nВикористання: .instload <посилання>",
+    )
+    async def instloadcmd(self, message: Message):
+        """Download Instagram story via link."""
+        args = utils.get_args_raw(message)
+        if not args:
+            await utils.answer(message, self.strings("yargs"))
+            return
+
+        url = args.strip()
+        m = await utils.answer(message, self.strings["instload"])
+
+        try:
+            api_url = f"https://bj-instagram-dl.ma-coder-x.workers.dev/?url={url}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"API request failed with {resp.status}")
+                    data = await resp.json()
+
+            if not data.get("status"):
+                await utils.answer(m, self.strings["noInst_data"])
+                return
+
+            media_urls = data["data"]["url"]
+            metadata = data["data"]["metadata"]
+            caption_text = metadata.get("caption") or ""
+            username = metadata.get("username") or ""
+
+            try:
+                meta_parser = InstaReelMeta()
+                author_meta_json = meta_parser.get_author(url)
+                author_meta = json.loads(author_meta_json)
+                fullname = author_meta["author"]["full_name"]
+            except Exception as e:
+                fullname = username
+                log.error(f"Could not get full_name, error: {e}")
+
+            if self.config["instfull"]:
+                caption = self.strings["instsucces"].format(
+                    username=username,
+                    fullname=fullname,
+                    url=url
+                )
+            else:
+                caption = self.strings["instsucces_min"]
+
+            for media_url in media_urls:
+                is_video = media_url.lower().endswith((".mp4", ".mov", ".mkv"))
+                if is_video:
+                    await message.client.send_file(
+                        message.chat_id,
+                        media_url,
+                        caption=caption,
+                        reply_to=message.id,
+                    )
+                else:
+                    await message.client.send_file(
+                        message.chat_id,
+                        media_url,
+                        caption=caption,
+                        force_document=False,
+                        reply_to=message.id,
+                    )
+
+            await m.delete()
+
+        except Exception as e:
+            log.error(f"INSTLOAD error: {e}")
+            await utils.answer(
+                m,
+                self.strings["dwn_err"].format(e=e)
+            )
+
     @loader.command(en_doc="Check module updates.", ru_doc="Проверить обновления модуля.", ua_doc="Перевірити оновлення модуля.")
     async def updcheckcmd(self, message):
         """This command check module updates."""
         pref = self.get_prefix()
-        
+        updlink = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
         metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
 
         try:
@@ -1216,7 +1494,7 @@ class MediaDownloaderMod(loader.Module):
                         return "<emoji document_id=5278411813468269386>✔️</emoji>" if video_url else "<emoji document_id=5278578973595427038>🚫</emoji>"
                 except Exception as e:
                     log.error(f"TikTok status checking error: {e}")
-                    return "🚫 ERROR. More info in logs."
+                    return "<b>🚫 ERROR. More info in logs.</b>"
 
             async def check_spotify():
                 try:
@@ -1237,7 +1515,7 @@ class MediaDownloaderMod(loader.Module):
                         else:
                             return "<emoji document_id=5278578973595427038>🚫</emoji>"
                 except Exception as e:
-                    return "🚫 ERROR. More info in logs."
+                    return "<b>🚫 ERROR. More info in logs.</b>"
                     log.error(f"Telegram story status checking error: {e}")
 
             tiktok_status, spotify_status, tg_status = await asyncio.gather(
@@ -1245,12 +1523,6 @@ class MediaDownloaderMod(loader.Module):
             )
 
         if remote_version == local_version:
-            await utils.answer(message, f"{self.strings('nupdm').format(local_version=local_version)}\n\n"
-                                        f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
-                                        f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
-                                        f"<emoji document_id=5471949924658588235>🩵</emoji> Telegram Story API status: {tg_status}")
+            await utils.answer(message, self.strings('nupdm').format(local_version=local_version, tiktok_status=tiktok_status, spotify_status=spotify_status, tg_status=tg_status))
         else:
-            await utils.answer(message, f"{self.strings('updm').format(local_version=local_version, remote_version=remote_version, remote_changelog=remote_changelog, pref=pref)}\n\n"
-                                        f"<emoji document_id=5472371913785354427>🎵</emoji> TikTok API status: {tiktok_status}\n"
-                                        f"<emoji document_id=5472235454084426508>♏</emoji> Spotify API status: {spotify_status}\n"
-                                        f"<emoji document_id=5471949924658588235>🩵</emoji> Telegram Story API status: {tg_status}")
+            await utils.answer(message, self.strings['updm'].format(local_version=local_version, remote_version=remote_version, remote_changelog=remote_changelog, pref=pref, updlink=updlink, tiktok_status=tiktok_status, spotify_status=spotify_status, tg_status=tg_status))
