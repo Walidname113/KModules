@@ -1,4 +1,4 @@
-__version__ = (1, 3, 0)
+__version__ = (1, 3, 1)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 3, 0)
 # meta APIs Providers: https://t.me/BJ_devs, https://t.me/Teleservices_api
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.3.0 change-log: [BETA] Fixing a lot of bugs, fixing critical bugs, improvements, adding playlist downloads from spotify, adding instagram story uploads via the instload command.
+# changelog: 1.3.1 change-log: Bug fixes, improvements.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -307,7 +307,7 @@ class MediaDownloaderMod(loader.Module):
         "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Author: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Download successful!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[May take a while]</b> | Uploading result...",
-        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Error: <code>{}</code>.",
+        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> YTLH Error: <code>{e}</code>.",
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> No media available",
         "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a YouTube video link!",
         "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> No streams in allowed resolution! To fix, enter: <code>{pref}fcfg Media-Downloader allow_high_res True</code>.",
@@ -317,8 +317,8 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Show the title of a YouTube video/author when it is loaded?",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
         "rrs": "[Useful] Channel with information about modules from the developer.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram Story API status: {tg_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram Story API status: {tg_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Photo successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> photo...",
@@ -333,7 +333,8 @@ class MediaDownloaderMod(loader.Module):
          "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Story(ies) successfully downloaded!\n<emoji document_id=5316578284429937362>👤</emoji> Author: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
          "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Story(ies) successfully downloaded!",
          "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> An unknown error occurred during download: <code>{e}</code>.",
-         "show_stfull": "Show author info + link to the story after downloading?"
+         "show_stfull": "Show author info + link to the story after downloading?",
+         "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a valid link."
     }
 
     strings_ru = {
@@ -383,7 +384,7 @@ class MediaDownloaderMod(loader.Module):
         "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Автор: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Загружено успешно!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Может быть долго]</b> | Загружаю результат...",
-        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка: <code>{}</code>.",
+        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Ошибка: <code>{e}</code>.",
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> Нет доступных медиа",
         "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Укажи ссылку на YouTube видео!",           
         "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Нет потоков в разрешенном разрешении! Чтобы исправить, введите: <code>{pref}fcfg Media-Downloader allow_high_res True</code> <b>(Не всегда помогает)</b>.",
@@ -393,8 +394,8 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показывать ли название видео/автора при загрузке с YouTube?",
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story загрузчика: {tg_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story загрузчика: {tg_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успешно загружены!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>", 
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю <b>HD</b> фото...",
@@ -409,7 +410,8 @@ class MediaDownloaderMod(loader.Module):
         "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Сторис(-ы) успешно загружен(-ы)!\n<emoji document_id=5316578284429937362>👤</emoji> Автор: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
         "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторис(-ы) успешно загружен(-ы)!",
         "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> При загрузке произошла неизвестная ошибка: <code>{e}</code>.",
-        "show_stfull": "Показывать информацию об авторе + ссылку на сторис после загрузки?"        
+        "show_stfull": "Показывать информацию об авторе + ссылку на сторис после загрузки?",
+        "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Предоставьте валидную ссылку на сторис(-ы)."
     }
 
     strings_ua = {
@@ -417,7 +419,7 @@ class MediaDownloaderMod(loader.Module):
         "no_args_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажіть ім'я користувача та номер історії.",
         "invalid_format_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Формат: tgsload <ім'я_користувача> <номер_історії>`",
         "invalid_number_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Номер історії повинен бути додатним числом.",
-        "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті API: {error}",
+        "api_error_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка при запиті до API: {error}",
         "no_stories_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Історії не знайдено.",
         "invalid_index_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> Невірний номер історії. Доступний діапазон: 1 - {max_index}",
         "no_url_tgs": "<emoji document_id=5278578973595427038>🚫</emoji> У вибраної історії відсутній URL.",
@@ -459,7 +461,7 @@ class MediaDownloaderMod(loader.Module):
         "ysuccess": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!\n<emoji document_id=4906943755644306322>🌐</emoji> <a href='{yurl}'>{ytitle}</a>\n<emoji document_id=5278472999572349966>👤</emoji> Автор: {author}.",
         "ysuccessm": "<emoji document_id=5318760565902947324>✅</emoji> <b>[F/-HD]</b> Завантажено успішно!",
         "yuploading": "<emoji document_id=5276220667182736079>⬇️</emoji> <b>[Може бути довго]</b> | Завантажую результат...",
-        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка: <code>{}</code>.",
+        "yerror": "<emoji document_id=5278578973595427038>🚫</emoji> Помилка: <code>{e}</code>.",
         "yno_media": "<emoji document_id=5278578973595427038>🚫</emoji> Немає доступних медіа",
         "yargs": "<emoji document_id=5278578973595427038>🚫</emoji> Вкажи посилання на YouTube відео!",
         "yno_allowed_res": "<emoji document_id=5278578973595427038>🚫</emoji> Немає потоків у дозволеному розширенні! Щоб виправити, введіть: <code>{pref}fcfg Media-Downloader allow_high_res True</code> <b>(Не завжди допомагає)</b>.",
@@ -469,8 +471,8 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg повернув помилку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показувати назву відео/автора при завантаженні з YouTube?",
         "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story завантажувача: {tg_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram-story завантажувача: {tg_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}",
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}",
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{original_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> фото...",
@@ -485,7 +487,8 @@ class MediaDownloaderMod(loader.Module):
         "instsucces": "<emoji document_id=5318760565902947324>✅</emoji> Сторіс(-и) успішно завантажені!\n<emoji document_id=5316578284429937362>👤</emoji> Автор: <a href='https://www.instagram.com/{username}'>{fullname}</a>\n<emoji document_id=5278305362703835500>🔗</emoji> {url}.",
         "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторіс(-и) успішно завантажені!",
         "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> Під час завантаження сталася невідома помилка: <code>{e}</code>.",
-        "show_stfull": "Чи показувати інформацію про автора+посилання на сторіс після його завантаження?"
+        "show_stfull": "Чи показувати інформацію про автора+посилання на сторіс після його завантаження?",
+        "n_inst_args": "Надайте валідне посилання на сторіс(-и)."
     }
     
     API_URL_TOKEN = "https://logkiya.netlify.app/.netlify/functions/tokenGen"
@@ -1109,9 +1112,9 @@ class MediaDownloaderMod(loader.Module):
                 )
 
     @loader.command(
-        ru_doc="Скачать историю какого-то юзера.\nИспользование: .tgsload <юзернейм> <номер_истории>.",
-        en_doc="Download story of user.\nUsage: .tgsload <username> <story_number>.",
-        ua_doc="Завантажити історію користувача.\nВикористання: .tgsload <юзернейм> <номер_історії>.")
+        ru_doc="Скачать telegram историю юзера.\nИспользование: .tgsload <юзернейм> <номер_истории>.",
+        en_doc="Download telegram story of user.\nUsage: .tgsload <username> <story_number>.",
+        ua_doc="Завантажити telegram історію користувача.\nВикористання: .tgsload <юзернейм> <номер_історії>.")
     async def tgsloadcmd(self, message):
         """This command downloads a Telegram story."""
         args = utils.get_args_raw(message)
@@ -1335,9 +1338,9 @@ class MediaDownloaderMod(loader.Module):
 
             await m.delete()
 
-        except Exception:
-            log.exception("YTLH full traceback")
-            await utils.answer(m, self.strings("yerror").format("Ошибка при скачивании видео. Смотрите лог для деталей."))
+        except Exception as e:
+            log.error("YTLH error: {e}.")
+            await utils.answer(m, self.strings["yerror"].format(e=e))
 
         finally:
             for file in [video_file, audio_file, output_file, 'yt_merged.mp4', 'yt_video.mp4', 'yt_audio.m4a']:
@@ -1362,7 +1365,7 @@ class MediaDownloaderMod(loader.Module):
         """Download Instagram story via link."""
         args = utils.get_args_raw(message)
         if not args:
-            await utils.answer(message, self.strings("yargs"))
+            await utils.answer(message, self.strings["n_inst_args"])
             return
 
         url = args.strip()
