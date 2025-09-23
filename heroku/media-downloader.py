@@ -508,10 +508,10 @@ class MediaDownloaderMod(loader.Module):
                     try:
                         data = json.loads(text)
                         token = data.get("token", "").strip()
-                        log.warning(f"Получен JSON токен: '{token}'")
+                        log.info(f"Получен JSON токен: '{token}'")
                     except Exception:
                         token = text
-                        log.warning(f"Получен plain text токен: '{token}'")
+                        log.info(f"Получен plain text токен: '{token}'")
 
                     if user_id:
                         payload = {
@@ -519,7 +519,7 @@ class MediaDownloaderMod(loader.Module):
                             "token": token,
                             "developerKey": "publictoken"
                         }
-                        log.warning(f"Payload для logUser, который будет отправлен: {payload}")
+                        log.info(f"Payload для logUser, который будет отправлен: {payload}")
 
                     return token
 
