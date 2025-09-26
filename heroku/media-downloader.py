@@ -1,4 +1,4 @@
-__version__ = (1, 3, 2)
+__version__ = (1, 3, 3)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 3, 2)
 # meta APIs Providers: https://t.me/BJ_devs
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.3.2 change-log: Minor changes and improvements, bug fixes.
+# changelog: 1.3.3 change-log: Bug fixes.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -508,10 +508,8 @@ class MediaDownloaderMod(loader.Module):
                     try:
                         data = json.loads(text)
                         token = data.get("token", "").strip()
-                        log.info(f"Получен JSON токен: '{token}'")
                     except Exception:
                         token = text
-                        log.info(f"Получен plain text токен: '{token}'")
 
                     if user_id:
                         payload = {
@@ -519,7 +517,6 @@ class MediaDownloaderMod(loader.Module):
                             "token": token,
                             "developerKey": "publictoken"
                         }
-                        log.info(f"Payload для logUser, который будет отправлен: {payload}")
 
                     return token
 
@@ -535,7 +532,6 @@ class MediaDownloaderMod(loader.Module):
             token = token.strip()
             developerKey = "publictoken"
             payload = {"userId": user_id, "token": token, "developerKey": developerKey}
-            log.warning(f"Отправка запроса на logUser с payload: {payload}")
 
             try:
                 async with session.post(self.API_URL_LOG, json=payload) as r:
@@ -543,11 +539,9 @@ class MediaDownloaderMod(loader.Module):
                     text = (await r.text()).strip()
                     try:
                         data = json.loads(text)
-                        log.warning(f"Ответ от logUser (JSON): {data}")
                         return data
-                    except Exception:
-                        log.warning(f"Ответ от logUser (plain text): {text}")
-                        return text
+                    except Exception as e:
+                        log.error(f"e returns via loguser: {e}")
             except aiohttp.ClientResponseError as e:
                 log.error(f"Error due CRE: {e}")
             except Exception as e:
@@ -732,11 +726,14 @@ class MediaDownloaderMod(loader.Module):
             )
         )
 
-    @loader.command(ru_doc="Скачать медиа из TikTok.\nИспользование: .tikload <ссылка>.",
-                    en_doc="Download TikTok media.\nUsage: .tikload <link>.",
-                    ua_doc="Завантажити медіа із TikTok.\nВикористання: .tikload <посилання>.")
+    @loader.command(
+        ru_doc="Скачать медиа из TikTok.\nИспользование: .tikload <ссылка>.",
+        en_doc="Download TikTok media.\nUsage: .tikload <link>.",
+        ua_doc="Завантажити медіа із TikTok.\nВикористання: .tikload <посилання>."
+    )
     async def tikloadcmd(self, message: Message):
-        """This command download a TikTok mediafiles."""
+        """This command downloads TikTok mediafiles via link."""
+
         args = utils.get_args_raw(message)
         if not args:
             await utils.answer(message, self.strings["no_tiktok_url"])
@@ -772,7 +769,6 @@ class MediaDownloaderMod(loader.Module):
 
         if media_type == "video":
             api_url = f"https://www.tikwm.com/api/?url={original_url}"
-            data = None
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(api_url) as resp:
@@ -782,10 +778,6 @@ class MediaDownloaderMod(loader.Module):
                         data = await resp.json()
             except Exception as e:
                 await utils.answer(message, self.strings["api_exception"].format(e))
-                return
-
-            if not data or not data.get("data"):
-                await utils.answer(message, self.strings["tiktok_api_fail"])
                 return
 
             video_url = data.get("data", {}).get("play", "")
@@ -798,9 +790,6 @@ class MediaDownloaderMod(loader.Module):
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(video_url) as resp:
-                        if resp.status != 200:
-                            await utils.answer(message, self.strings["download_error"].format(resp.status))
-                            return
                         video_bytes = await resp.read()
             except Exception as e:
                 await utils.answer(message, self.strings["file_error"].format(e))
@@ -847,7 +836,15 @@ class MediaDownloaderMod(loader.Module):
 
             await utils.answer(message, self.strings["downloading_ph"])
 
-            photo_streams = []
+            author_info = data.get("data", {}).get("author", {})
+            username = author_info.get("unique_id", "unknown")
+            nickname = author_info.get("nickname", "Unknown")
+            author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
+
+            caption = self.strings["ph_succesfully"].format(username=username, nickname=nickname, cleared_url=cleared_url, author=author) if self.config["ph_success_info"] else self.strings["ph_succesfully_minimal"].format(username=username, nickname=nickname, cleared_url=cleared_url, author=author)
+
+            photo_groups = []
+            group = []
             for idx, img_url in enumerate(images, 1):
                 try:
                     async with aiohttp.ClientSession() as session:
@@ -857,29 +854,23 @@ class MediaDownloaderMod(loader.Module):
                             img_bytes = await resp.read()
                     img_stream = io.BytesIO(img_bytes)
                     img_stream.name = f"{media_id}_{idx}.jpg"
-                    photo_streams.append(img_stream)
+                    group.append(img_stream)
+                    if len(group) == 10:
+                        photo_groups.append(group)
+                        group = []
                 except Exception:
                     continue
+            if group:
+                photo_groups.append(group)
 
-            if not photo_streams:
-                await utils.answer(message, self.strings["tiktok_no_video"])
-                return
-
-            author_info = data.get("data", {}).get("author", {})
-            username = author_info.get("unique_id", "unknown")
-            nickname = author_info.get("nickname", "Unknown")
-            author = f"<a href='https://www.tiktok.com/@{username}'>{nickname}</a>"
-
-            caption = self.strings["ph_succesfully"].format(username=username, nickname=nickname, cleared_url=cleared_url, author=author) if self.config["ph_success_info"] else self.strings["ph_succesfully_minimal"].format(username=username, nickname=nickname, cleared_url=cleared_url, author=author)
-
-            await message.client.send_file(
-                message.chat_id,
-                photo_streams,
-                reply_to=message.id,
-                caption=caption,
-                parse_mode="HTML"
-            )
-            return        
+            for i, grp in enumerate(photo_groups, 1):
+                send_caption = caption if i == len(photo_groups) else None
+                await message.client.send_file(
+                    message.chat_id,
+                    grp,
+                    reply_to=message.id,
+                    caption=send_caption,
+                    parse_mode="HTML")
                         
     @loader.command(
         ru_doc="Скачать трек или плейлист с Spotify.\nИспользование: .spot <ссылка>.",
