@@ -1,4 +1,4 @@
-__version__ = (1, 3, 3)
+__version__ = (1, 3, 4)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 3, 3)
 # meta APIs Providers: https://t.me/BJ_devs
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.3.3 change-log: Bug fixes.
+# changelog: 1.3.4 change-log: Switching to a more stable option for downloading music from Spotify.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -34,6 +34,8 @@ import yt_dlp # type: ignore
 import zipfile
 import instaloader # type: ignore
 from instaloader import Instaloader, Post # type: ignore
+import tempfile
+from pathlib import Path
 
 log = logging.getLogger("Media-Downloader")
 
@@ -260,6 +262,85 @@ def clean_social_link(url: str) -> str:
     parsed = urlparse(url)
     clean_url = parsed._replace(query="", fragment="")
     return urlunparse(clean_url)
+
+class SpotifyDownloader:
+    """
+    SpotifyDownloader downloads Spotify tracks via a direct-download API.
+    It automatically converts a Spotify track URL into a downloadable mp3.
+    """
+
+    def __init__(
+        self,
+        logging_enabled: bool = False,
+        max_log_level: Optional[int] = logging.ERROR,
+        log_format: Optional[str] = None
+    ) -> None:
+        self.logging_enabled: bool = logging_enabled or (max_log_level is not None)
+        self.max_log_level: Optional[int] = max_log_level
+        self.logger: Optional[logging.Logger] = None
+        if self.logging_enabled:
+            self._init_default_logger(log_format)
+
+    def _init_default_logger(self, log_format: Optional[str] = None) -> None:
+        logger: logging.Logger = logging.getLogger("SpotifyDownloader")
+        if self.max_log_level is not None:
+            logger.setLevel(self.max_log_level)
+        handler: logging.StreamHandler = logging.StreamHandler()
+        fmt: str = log_format or "%(levelname)s: %(message)s"
+        handler.setFormatter(logging.Formatter(fmt))
+        logger.handlers = []
+        logger.addHandler(handler)
+        self.logger = logger
+
+    def set_logger(self, logger: logging.Logger) -> None:
+        self.logger = logger
+
+    async def download(
+        self,
+        spotify_url: str,
+        outfile: Optional[Union[str, Path]] = "track.mp3",
+        temporary: bool = False
+    ) -> Optional[str]:
+        """
+        Download a Spotify track by converting the Spotify URL through the API.
+        """
+        if outfile is None and temporary:
+            tmp: tempfile.NamedTemporaryFile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            outfile = tmp.name
+            tmp.close()
+
+        if self.logger:
+            self.logger.info(f"Converting Spotify URL: {spotify_url}")
+
+        api_url = f"https://spotmp3.app/api/direct-download?url={spotify_url}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status != 200:
+                        if self.logger:
+                            self.logger.error(f"HTTP error from API: {resp.status}")
+                        return None
+
+                    path: Path = Path(outfile)
+                    with open(path, "wb") as f:
+                        async for chunk in resp.content.iter_chunked(1024 * 1024):
+                            if chunk:
+                                f.write(chunk)
+
+            if self.logger:
+                self.logger.info(f"Download completed: {outfile}")
+            return str(outfile)
+
+        except aiohttp.ClientError as e:
+            if self.logger:
+                self.logger.warning(f"Client error: {e}")
+            return None
+
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Critical error: {e}")
+            return None
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
@@ -878,7 +959,7 @@ class MediaDownloaderMod(loader.Module):
         ua_doc="Завантажити трек або плейлист із Spotify.\nВикористання: .spot <посилання>."
     )
     async def spotcmd(self, message: Message):
-        """Download Spotify track or playlist."""
+        """Download Spotify track or playlist using SpotifyDownloader."""
 
         args = utils.get_args_raw(message)
         if not args:
@@ -897,84 +978,25 @@ class MediaDownloaderMod(loader.Module):
             await utils.answer(message, self.strings["invalid_data"].format("URL", "unknown"))
             return
 
+        downloader = SpotifyDownloader(logging_enabled=False)
+
         if not is_playlist:
-            api_url = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={user_url}"
-
-            async with aiohttp.ClientSession() as session:
-                try:
-                    async with session.get(api_url) as resp:
-                        if resp.status != 200:
-                            await utils.answer(message, self.strings["api_error"].format(resp.status))
-                            return
-                        data = await resp.json()
-                except Exception as e:
-                    await utils.answer(message, self.strings["api_exception"].format(e))
-                    return
-
-            if not data.get("status"):
-                await utils.answer(message, self.strings["api_fail"])
-                return
-
-            track_data = data.get("data", {})
-            download_link = track_data.get("downloadLink")
-            img_url = track_data.get("imgUrl")
-
-            if not isinstance(download_link, str):
-                await utils.answer(message, self.strings["invalid_data"].format(download_link, img_url))
-                return
-
             await utils.answer(message, self.strings["downloading"])
-
             with tempfile.TemporaryDirectory() as tmpdir:
-                mp3_path = os.path.join(tmpdir, "track.mp3")
-                img_path = os.path.join(tmpdir, "cover.jpg")
-
+                local_mp3 = Path(tmpdir) / "track.mp3"
                 try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(download_link) as resp:
-                            if resp.status != 200:
-                                await utils.answer(message, self.strings["download_error"].format(resp.status))
-                                return
-                            with open(mp3_path, "wb") as f:
-                                f.write(await resp.read())
-
-                        if isinstance(img_url, str):
-                            async with session.get(img_url) as resp:
-                                if resp.status == 200:
-                                    with open(img_path, "wb") as f:
-                                        f.write(await resp.read())
+                    mp3_path = await downloader.download(user_url, outfile=local_mp3)
+                    if not mp3_path:
+                        raise Exception("Failed to download track via API")
                 except Exception as e:
-                    await utils.answer(message, self.strings["file_error"].format(e))
+                    await utils.answer(message, self.strings["api_fail"])
                     return
-
-                try:
-                    audio = MP3(mp3_path, ID3=ID3)
-                    try:
-                        audio.add_tags()
-                    except Exception:
-                        pass
-
-                    if os.path.exists(img_path):
-                        with open(img_path, 'rb') as albumart:
-                            audio.tags.add(
-                                APIC(
-                                    encoding=3,
-                                    mime='image/jpeg',
-                                    type=3,
-                                    desc='Cover',
-                                    data=albumart.read()
-                                )
-                            )
-                    audio.save()
-                except Exception:
-                    pass
 
                 caption = (
                     self.strings["done_caption"].format(cleared_url)
                     if self.config["show_spotify_link"]
                     else self.strings["done_caption_minimal"]
                 )
-
                 await message.client.send_file(
                     message.chat_id,
                     mp3_path,
@@ -983,7 +1005,6 @@ class MediaDownloaderMod(loader.Module):
                     parse_mode='HTML',
                     voice_note=False,
                 )
-
         else:
             api_url = f"https://logkiya.netlify.app/.netlify/functions/spot-playlister?id={playlist_id}"
             async with aiohttp.ClientSession() as session:
@@ -1000,7 +1021,6 @@ class MediaDownloaderMod(loader.Module):
 
             playlist_name = playlist_data.get("meta", {}).get("playlistName", "playlist")
             tracks = playlist_data.get("tracks", [])
-
             if not tracks:
                 await utils.answer(message, self.strings["api_fail"])
                 return
@@ -1009,9 +1029,10 @@ class MediaDownloaderMod(loader.Module):
             await utils.answer(message, self.strings["spot_plload"].format(safe_name=safe_name))
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                zip_path = os.path.join(tmpdir, f"{safe_name}.zip")
+                zip_path = Path(tmpdir) / f"{safe_name}.zip"
                 not_loaded = []
 
+                import zipfile
                 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                     for i, track in enumerate(tracks, 1):
                         track_url = track.get("trackUrl")
@@ -1020,80 +1041,23 @@ class MediaDownloaderMod(loader.Module):
                             not_loaded.append(f"{track_name} - missing trackUrl")
                             continue
 
-                        track_api = f"https://bj-tricks.serv00.net/Spotify-downloader-api/?url={track_url}"
+                        mp3_path = Path(tmpdir) / f"track_{i}.mp3"
                         try:
-                            async with aiohttp.ClientSession() as session:
-                                async with session.get(track_api) as resp:
-                                    if resp.status != 200:
-                                        not_loaded.append(f"{track_name} - API HTTP {resp.status}")
-                                        continue
-                                    track_info = await resp.json()
+                            got_file = await downloader.download(track_url, outfile=mp3_path)
+                            if not got_file:
+                                not_loaded.append(f"{track_name} - failed download")
+                                continue
                         except Exception as e:
-                            not_loaded.append(f"{track_name} - API error {e}")
+                            not_loaded.append(f"{track_name} - critical error: {e}")
                             continue
-
-                        if not track_info.get("status"):
-                            not_loaded.append(f"{track_name} - API returned no status")
-                            continue
-
-                        tdata = track_info.get("data", {})
-                        download_link = tdata.get("downloadLink")
-                        img_url = tdata.get("imgUrl")
-
-                        if not download_link:
-                            not_loaded.append(f"{track_name} - missing downloadLink")
-                            continue
-
-                        mp3_path = os.path.join(tmpdir, f"track_{i}.mp3")
-                        img_path = os.path.join(tmpdir, f"cover_{i}.jpg")
-
-                        try:
-                            async with aiohttp.ClientSession() as session:
-                                async with session.get(download_link) as resp:
-                                    if resp.status != 200:
-                                        not_loaded.append(f"{track_name} - download HTTP {resp.status}")
-                                        continue
-                                    with open(mp3_path, "wb") as f:
-                                        f.write(await resp.read())
-
-                                if img_url:
-                                    async with session.get(img_url) as resp:
-                                        if resp.status == 200:
-                                            with open(img_path, "wb") as f:
-                                                f.write(await resp.read())
-                        except Exception as e:
-                            not_loaded.append(f"{track_name} - download error {e}")
-                            continue
-
-                        try:
-                            audio = MP3(mp3_path, ID3=ID3)
-                            try:
-                                audio.add_tags()
-                            except Exception:
-                                pass
-                            if os.path.exists(img_path):
-                                with open(img_path, 'rb') as albumart:
-                                    audio.tags.add(
-                                        APIC(
-                                            encoding=3,
-                                            mime='image/jpeg',
-                                            type=3,
-                                            desc='Cover',
-                                            data=albumart.read()
-                                        )
-                                    )
-                            audio.save()
-                        except Exception as e:
-                            not_loaded.append(f"{track_name} - tagging error {e}")
 
                         safe_track_name = "".join(c for c in track_name if c.isalnum() or c in (" ", "_", "-"))
                         if not safe_track_name:
                             safe_track_name = f"track_{i}"
-
                         zipf.write(mp3_path, arcname=f"{safe_track_name}.mp3")
 
                     if not_loaded:
-                        readme_path = os.path.join(tmpdir, "not_loaded_README.txt")
+                        readme_path = Path(tmpdir) / "not_loaded_README.txt"
                         with open(readme_path, "w", encoding="utf-8") as f:
                             f.write("The following tracks were not loaded:\n\n")
                             for line in not_loaded:
