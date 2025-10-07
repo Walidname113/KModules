@@ -1023,15 +1023,14 @@ class MediaDownloaderMod(loader.Module):
                     reply_to=message.id,
                     caption=send_caption,
                     parse_mode="HTML")
-                        
-# Оптимизированная команда для скачивания трека или плейлиста с Spotify с фоллбэком и добавлением метадаты через mutagen
+                
     @loader.command(
         ru_doc="Скачать трек или плейлист с Spotify.\nИспользование: .spot <ссылка>.",
         en_doc="Download Spotify track or playlist.\nUsage: .spot <link>.",
         ua_doc="Завантажити трек або плейлист із Spotify.\nВикористання: .spot <посилання>."
     )
     async def spotcmd(self, message: Message):
-        """Download Spotify track or playlist using SpotifyDownloader with optimized fallback metadata handling."""
+        """Download Spotify track or playlist using SpotifyDownloader."""
 
         args = utils.get_args_raw(message)
         if not args:
@@ -1138,8 +1137,6 @@ class MediaDownloaderMod(loader.Module):
                 with tempfile.TemporaryDirectory() as tmpdir:
                     zip_path = Path(tmpdir) / f"{safe_name}.zip"
                     not_loaded = []
-
-                    import zipfile
                     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                         for i, track in enumerate(tracks, 1):
                             track_url = track.get("trackUrl")
