@@ -1,4 +1,4 @@
-__version__ = (1, 3, 5)
+__version__ = (1, 3, 6)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 3, 5)
 # meta APIs Providers: https://t.me/BJ_devs
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.3.5 change-log: Bugfixes and improvements.
+# changelog: 1.3.6 change-log: Improvements to Youtube downloader.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -34,8 +34,8 @@ import yt_dlp # type: ignore
 import zipfile
 import instaloader # type: ignore
 from instaloader import Instaloader, Post # type: ignore
-import tempfile
 from pathlib import Path
+import subprocess
 
 log = logging.getLogger("Media-Downloader")
 
@@ -341,6 +341,70 @@ class SpotifyDownloader:
             if self.logger:
                 self.logger.error(f"Critical error: {e}")
             return None
+
+def _parse_version(v: str):
+    """Return tuple for comparison: (major, minor, patch, is_nightly, nightly_num)"""
+    if not v:
+        return (0, 0, 0, False, 0)
+    v = v.strip()
+    is_nightly = "nightly" in v
+    nums = re.findall(r"\d+", v)
+    major, minor, patch, *rest = (list(map(int, nums[:3])) + [0, 0, 0])[:3]
+    nightly_num = int(nums[-1]) if is_nightly and nums else 0
+    return (major, minor, patch, is_nightly, nightly_num)
+
+
+async def ensure_nightly(enable_logs: bool = True):
+    if enable_logs:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+        log = logging.info
+        log_error = logging.error
+    else:
+        log = lambda *a, **k: None
+        log_error = lambda *a, **k: None
+
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "pip", "show", "yt-dlp",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    out, err = await proc.communicate()
+    current_ver = None
+    for line in out.decode().splitlines():
+        if line.startswith("Version:"):
+            current_ver = line.split(":", 1)[1].strip()
+    log(f"Current installed yt-dlp version: {current_ver or 'not installed'}")
+
+    proc2 = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "pip", "index", "versions", "yt-dlp",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    out2, err2 = await proc2.communicate()
+    text = out2.decode()
+
+    nightly_versions = [v.strip(",") for v in text.split() if "nightly" in v.lower()]
+    if not nightly_versions:
+        log("No nightly versions found on PyPI")
+        return
+
+    latest_ver = sorted(nightly_versions, key=_parse_version, reverse=True)[0]
+    log(f"Latest nightly version on PyPI: {latest_ver}")
+
+    if current_ver is None or _parse_version(latest_ver) > _parse_version(current_ver):
+        log("Installing latest nightly version...")
+        proc3 = await asyncio.create_subprocess_exec(
+            sys.executable, "-m", "pip", "install", "--pre", "-U", "yt-dlp-nightly",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        out3, err3 = await proc3.communicate()
+        if proc3.returncode == 0:
+            log("Nightly version installed successfully")
+        else:
+            log_error(f"Failed to install nightly version: {err3.decode().strip()}")
+    else:
+        log("Installed version is up-to-date; no update needed")
 
 @loader.tds
 class MediaDownloaderMod(loader.Module):
@@ -960,6 +1024,7 @@ class MediaDownloaderMod(loader.Module):
                     caption=send_caption,
                     parse_mode="HTML")
                         
+# Оптимизированная команда для скачивания трека или плейлиста с Spotify с фоллбэком и добавлением метадаты через mutagen
     @loader.command(
         ru_doc="Скачать трек или плейлист с Spotify.\nИспользование: .spot <ссылка>.",
         en_doc="Download Spotify track or playlist.\nUsage: .spot <link>.",
@@ -1073,7 +1138,8 @@ class MediaDownloaderMod(loader.Module):
                 with tempfile.TemporaryDirectory() as tmpdir:
                     zip_path = Path(tmpdir) / f"{safe_name}.zip"
                     not_loaded = []
-                    
+
+                    import zipfile
                     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                         for i, track in enumerate(tracks, 1):
                             track_url = track.get("trackUrl")
@@ -1288,6 +1354,7 @@ class MediaDownloaderMod(loader.Module):
 
             if not videos:
                 await utils.answer(m, self.strings("yno_media"))
+                asyncio.run(ensure_nightly(enable_logs=False))
                 return
 
             def extract_height(q: str) -> int:
