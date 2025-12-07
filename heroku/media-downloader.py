@@ -1,4 +1,4 @@
-__version__ = (1, 3, 6)
+__version__ = (1, 3, 7)
 # -- coding: utf-8 --
 # Copyright (c) 2025 Walidname113
 # This file is part of Media-Downloader and is licensed under the GNU AGPLv3.
@@ -11,7 +11,7 @@ __version__ = (1, 3, 6)
 # meta APIs Providers: https://t.me/BJ_devs
 # scope: hikka_min 1.6.2
 # scope: ffmpeg
-# changelog: 1.3.6 change-log: Improvements to Youtube downloader.
+# changelog: 1.3.7 change-log: Bug fixes. The Instagram downloader has been removed for a full refactor. The YouTube downloader has been completely fixed — videos now download reliably.
 
 from herokutl.types import Message # type: ignore
 from .. import loader, utils
@@ -36,6 +36,7 @@ import instaloader # type: ignore
 from instaloader import Instaloader, Post # type: ignore
 from pathlib import Path
 import subprocess
+import traceback
 
 log = logging.getLogger("Media-Downloader")
 
@@ -48,190 +49,54 @@ class ConnectionResetByPeer(Exception):
     pass
 
 class YouTubeDownloaderError(Exception):
-    """Custom exception for YouTubeDownloader errors with optional hint."""
-    def __init__(self, message: str, hint: Optional[str] = None) -> None:
+    """Custom exception for YouTubeDownloader errors."""
+    def __init__(self, message: str) -> None:
         super().__init__(message)
-        self.hint: Optional[str] = hint
 
 
 class AsyncYouTubeDownloader:
-    VALID_VIDEO_QUALITY_REGEX = re.compile(
-        r'^(?P<height>\d{3,4})(?:p)?(?:\d{2})?(?:\s*HDR)?$', re.IGNORECASE
-    )
-    SUPPORTED_AUDIO_QUALITIES: List[str] = ['low', 'medium', 'high', 'best']
-
     def __init__(
         self,
         video_url: str,
-        enable_logs: bool = False,
-        auto_download: bool = False,
-        video_quality: Optional[str] = None,
-        audio_quality: str = 'best',
-        force_combined: bool = False
+        output_file: str,
+        allow_high_res: bool = False,
+        show_download_log: bool = False
     ) -> None:
         self.video_url: str = video_url
-        self.enable_logs: bool = enable_logs
-        self.auto_download: bool = auto_download
-        self.video_quality: Optional[str] = video_quality
-        self.audio_quality: str = audio_quality
-        self.force_combined: bool = force_combined
-        self.info: Optional[Dict[str, Any]] = None
-        self.result: Dict[str, Any] = {}
-
-    def _validate_video_quality(self, quality: str) -> str:
-        if not quality:
-            return ''
-        match = self.VALID_VIDEO_QUALITY_REGEX.match(quality.replace(' ', ''))
-        if match:
-            return quality.strip()
-        raise YouTubeDownloaderError(
-            f"Invalid video quality: {quality}",
-            hint="Valid examples: '720p', '1080p60', '720 HDR', '720p HDR'"
-        )
-
-    def _validate_audio_quality(self, quality: str) -> str:
-        if quality not in self.SUPPORTED_AUDIO_QUALITIES:
-            raise YouTubeDownloaderError(
-                f"Invalid audio quality: {quality}",
-                hint=f"Supported values: {', '.join(self.SUPPORTED_AUDIO_QUALITIES)}"
-            )
-        return quality
-
-    def _get_best_audio(self, audio_formats: List[Dict[str, Any]]) -> Optional[str]:
-        if not audio_formats:
-            return None
-        if self.audio_quality == 'best':
-            audio_formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
-            return audio_formats[0]['url']
-        audio_formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
-        return audio_formats[0]['url']
-
-    def _choose_video_format(self, video_formats: List[Dict[str, Any]]) -> Dict[str, Any]:
-        grouped: Dict[int, List[Dict[str, Any]]] = {}
-        for f in video_formats:
-            res = f.get('height') or 0
-            grouped.setdefault(res, []).append(f)
-
-        desired_height: Optional[int] = None
-        if self.video_quality:
-            vq = self._validate_video_quality(self.video_quality)
-            desired_height = int(re.search(r'\d{3,4}', vq).group())
-
-        available_heights = sorted(grouped.keys())
-        if not available_heights:
-            raise YouTubeDownloaderError(
-                "No available video formats",
-                hint="Check if the video URL is correct and the video is accessible."
-            )
-
-        chosen_height: int
-        if desired_height:
-            if desired_height in available_heights:
-                chosen_height = desired_height
-            else:
-                higher = [h for h in available_heights if h > desired_height]
-                lower = [h for h in available_heights if h < desired_height]
-                if lower:
-                    chosen_height = max(lower)
-                elif higher:
-                    chosen_height = min(higher)
-                else:
-                    chosen_height = max(available_heights)
-        else:
-            chosen_height = max(available_heights)
-
-        group = grouped[chosen_height]
-        group.sort(key=lambda x: (x.get('fps', 0), x.get('tbr', 0)), reverse=True)
-        return group[0]
-
-    async def _run_ffmpeg_merge(self, video_path: str, audio_path: str, output_path: str) -> None:
-        """Asynchronously merge video and audio using ffmpeg."""
-        if not shutil.which("ffmpeg"):
-            raise YouTubeDownloaderError(
-                "ffmpeg not found",
-                hint="Install ffmpeg and add it to PATH for combining video and audio."
-            )
-        process = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", video_path, "-i", audio_path, "-c:v", "copy", "-c:a", "aac", output_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        if process.returncode != 0:
-            raise YouTubeDownloaderError(f"ffmpeg merge failed:\n{stderr.decode()}")
+        self.output_file: str = output_file
+        self.allow_high_res: bool = allow_high_res
+        self.show_download_log: bool = show_download_log
+        self.info: Dict[str, Any] = {}
 
     async def download(self) -> None:
-        """Download video and audio asynchronously and optionally combine."""
-        try:
-            ydl_opts: Dict[str, Any] = {}
-            if not self.enable_logs:
-                ydl_opts['quiet'] = True
-
-            self.info = await asyncio.to_thread(lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(self.video_url, download=False))
-            formats: List[Dict[str, Any]] = self.info.get('formats', [])
-
-            video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('format_note') != 'storyboard']
-            audio_formats = [f for f in formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
-
-            if not video_formats:
-                raise YouTubeDownloaderError("No video formats available", hint="Check the video URL")
-
-            self._validate_audio_quality(self.audio_quality)
-            best_audio_url = self._get_best_audio(audio_formats)
-
-            best_video = self._choose_video_format(video_formats)
-            has_audio = best_video.get('acodec') != 'none'
-            combined = has_audio or self.force_combined
-
-            video_entry: Dict[str, Union[str, bool]] = {
-                "video_url": best_video['url'],
-                "quality": best_video.get('format_note') or f"{best_video.get('height', 'unknown')}p",
-                "combined": combined
-            }
-
-            if not has_audio or self.force_combined:
-                if audio_formats:
-                    video_entry["audio_hdplay"] = self._get_best_audio(audio_formats)
-
-            self.result = {
-                "videos": [video_entry],
-                "audio_hdplay": best_audio_url,
-                "meta": {
-                    "title": self.info.get('title'),
-                    "views": self.info.get('view_count'),
-                    "uploader_id": self.info.get('uploader_id'),
-                    "uploader": self.info.get('uploader'),
-                    "duration": self.info.get('duration'),
-                    "description": self.info.get('description'),
-                    "best_audio_url": best_audio_url,
-                    "thumbnail": self.info.get('thumbnail')
-                }
-            }
-
-            if self.auto_download:
-                await asyncio.to_thread(self._download_video, best_video, audio_formats, combined)
-
-        except YouTubeDownloaderError as e:
-            print(f"[ERROR] {e}")
-            if e.hint:
-                print(f"[HINT] {e.hint}")
-        except Exception as e:
-            print(f"[ERROR] Unexpected error: {e}")
-            print(f"[HINT] Check the video URL and ensure ffmpeg is installed if combining streams.")
-
-    def _download_video(self, best_video: Dict[str, Any], audio_formats: List[Dict[str, Any]], combined: bool) -> None:
-        """Synchronous helper to download video/audio using yt-dlp in a thread."""
-        ydl_opts: Dict[str, Any] = {}
-        if not combined and audio_formats:
-            ydl_opts['format'] = f"{best_video['format_id']}+{audio_formats[0]['format_id']}"
+        """Download video using yt-dlp with specified quality settings."""
+        
+        if self.allow_high_res:
+            format_str = "bestvideo+bestaudio/best"
         else:
-            ydl_opts['format'] = best_video['format_id']
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([self.video_url])
+            format_str = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 
-    def get_json(self) -> str:
-        """Return the download info and metadata as UTF-8 JSON."""
-        return json.dumps(self.result, indent=4, ensure_ascii=False)
+        ydl_opts = {
+            'format': format_str,
+            'outtmpl': self.output_file,
+            'merge_output_format': 'mp4',
+            'noplaylist': True,
+            'nocheckcertificate': True,
+            'geo_bypass': True,
+            'concurrent_fragment_downloads': 5,
+            'quiet': not self.show_download_log,
+            'noprogress': not self.show_download_log,
+            'logtostderr': self.show_download_log,
+        }
+
+        await asyncio.to_thread(self._run_yt_dlp, ydl_opts)
+
+    def _run_yt_dlp(self, opts: Dict[str, Any]) -> None:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            self.info = ydl.extract_info(self.video_url, download=True)
+            if not self.info:
+                raise YouTubeDownloaderError("Failed to extract video info")
+
 
 class InstaReelMeta:
     def __init__(self):
@@ -467,8 +332,9 @@ class MediaDownloaderMod(loader.Module):
         "show_ytdlh_vname": "Show the title of a YouTube video/author when it is loaded?",
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg return Error: <code>{retcode}</code>.",
         "rrs": "[Useful] Channel with information about modules from the developer.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Instagram API status: {insta_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Instagram API status: {insta_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Version: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> No updates available.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}", #\n<emoji document_id=6321214415349745664>❤️</emoji> Instagram API status: {insta_status}
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}", #\n<emoji document_id=6321214415349745664>❤️</emoji> Instagram API status: {insta_status}
+        "updmfall": "<emoji document_id=5276240711795107620>❕️</emoji>Update available {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Changelog of the new version:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>To update, use the command:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> TikTok API status: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Spotify API status: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Telegram API status: {tg_status}\n\n<blockquote expanable><b>An update is available, but the module could not connect to the main API to get accurate data on whether the update is available there. Therefore, if your module is not updating and remains on the same version — try waiting <b>up to</b> 24 hours, or update manually using the command: <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py</code>.</blockquote>",
         "_cls_doc": "👑 The best module designed to let you download the media you want without watermarks, service subscription, or author attribution in F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Photo successfully downloaded!\n<emoji document_id=5375464961822695044>🎬</emoji> Author: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{cleared_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Downloading <b>HD</b> photo...",
@@ -484,7 +350,8 @@ class MediaDownloaderMod(loader.Module):
          "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Story(ies) successfully downloaded!",
          "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> An unknown error occurred during download: <code>{e}</code>.",
          "show_stfull": "Show author info + link to the story after downloading?",
-         "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a valid link."
+         "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Provide a valid link.",
+         "show_dllog": "Do need to display a progress bar to the console about downloading any video from YouTube?"
     }
 
     strings_ru = {
@@ -544,8 +411,9 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg вернул ошибку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показывать ли название видео/автора при загрузке с YouTube?",
         "rrs": "[Полезно] Канал с информацией о модулях от разработчика.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram загрузчика: {insta_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram загрузчика: {insta_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версия: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Обновлений нет.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}", #\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram загрузчика: {insta_status}
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}", #\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram загрузчика: {insta_status}
+        "updmfall": "<emoji document_id=5276240711795107620>❕️</emoji>Доступно обновление {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Описание новой версии:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для обновления, используйте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok загрузчика: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify загрузчика: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram загрузчика: {tg_status}\n\n<blockquote expanable><b>Обновление доступно, но модуль не смог связаться с основным API для получения точных данных о том, доступно ли обновление там, поэтому если у вас не обновляется модуль, а остаётся на той же версии — попробуйте подождать <b>до</b> 24 часов, либо обновиться вручную командой: <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py</code>.</b></blockquote>",
         "_cls_doc": "👑 Лучший модуль, который поможет загрузить нужное вам медиа без водяного знака/подписки сервиса/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успешно загружены!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{cleared_url}</code>", 
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Загружаю <b>HD</b> фото...",
@@ -561,7 +429,8 @@ class MediaDownloaderMod(loader.Module):
         "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторис(-ы) успешно загружен(-ы)!",
         "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> При загрузке произошла неизвестная ошибка: <code>{e}</code>.",
         "show_stfull": "Показывать информацию об авторе + ссылку на сторис после загрузки?",
-        "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Предоставьте валидную ссылку на сторис(-ы)."
+        "n_inst_args": "<emoji document_id=5278578973595427038>🚫</emoji> Предоставьте валидную ссылку на сторис(-ы).",
+        "show_dllog": "Нужно ли выводить прогресс-бар о скачке любого видео с YouTube в консоль?"
     }
 
     strings_ua = {
@@ -621,8 +490,9 @@ class MediaDownloaderMod(loader.Module):
         "ffmpeg_berror": "<emoji document_id=5278578973595427038>🚫</emoji> ffmpeg повернув помилку: <code>{retcode}</code>.",
         "show_ytdlh_vname": "Показувати назву відео/автора при завантаженні з YouTube?",
         "rrs": "[Корисно] Канал з інформацією про модулі від розробника.",
-        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram завантажувача: {insta_status}",
-        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram завантажувача: {insta_status}",
+        "nupdm": "<emoji document_id=5818774589714468177>🔱</emoji> Версія: {local_version}.\n<emoji document_id=5278578973595427038>🚫</emoji> Оновлень немає.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}", #\n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram завантажувача: {insta_status}
+        "updm": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}", # \n<emoji document_id=6321214415349745664>❤️</emoji> Статус Instagram завантажувача: {insta_status}
+        "updmfall": "<emoji document_id=5276240711795107620>❕️</emoji>Доступне оновлення {local_version} > {remote_version}.\n<emoji document_id=5434144690511290129>⚕️</emoji><b>Опис нової версії:</b>\n<blockquote>{remote_changelog}</blockquote>\n\n<emoji document_id=5274099962655816924>❗️</emoji><i><b>Для оновлення використайте команду:</b></i> <code>{pref}dlm {updlink}</code>.\n\n<emoji document_id=6318862057466759063>🎵</emoji> Статус TikTok завантажувача: {tiktok_status}\n<emoji document_id=6319076999105087378>💚</emoji> Статус Spotify завантажувача: {spotify_status}\n<emoji document_id=6321231062642986364>🩵</emoji> Статус Telegram завантажувача: {tg_status}\n\n​<blockquote expanable><b>Оновлення доступне, але модуль не зміг зв'язатися з основним API для отримання точних даних про те, чи доступне оновлення там. Тому, якщо у вас не оновлюється модуль, а залишається на тій же версії — спробуйте почекати <b>до</b> 24 годин, або оновіться вручну командою: <code>{pref}dlm https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py</code>.</blockquote>",
         "_cls_doc": "👑 Найкращий модуль, який допоможе завантажити потрібне вам медіа без водяного знака/підписки сервісу/автора в F/-HD.",
         "ph_succesfully": "<emoji document_id=5318760565902947324>✅</emoji> <b>[HD]</b> Фото успішно завантажено!\n<emoji document_id=5375464961822695044>🎬</emoji> Автор: {author}\n<emoji document_id=5278305362703835500>🔗</emoji> <code>{cleared_url}</code>",
         "downloading_ph": "<emoji document_id=5276220667182736079>⬇️</emoji> Завантажую <b>HD</b> фото...",
@@ -638,7 +508,8 @@ class MediaDownloaderMod(loader.Module):
         "instsucces_min": "<emoji document_id=5318760565902947324>✅</emoji> Сторіс(-и) успішно завантажені!",
         "dwn_err": "<emoji document_id=5278578973595427038>🚫</emoji> Під час завантаження сталася невідома помилка: <code>{e}</code>.",
         "show_stfull": "Чи показувати інформацію про автора+посилання на сторіс після його завантаження?",
-        "n_inst_args": "Надайте валідне посилання на сторіс(-и)."
+        "n_inst_args": "Надайте валідне посилання на сторіс(-и).",
+        "show_dllog": "Чи потрібно виводити до консолі прогресс-бар про скачування будь-якого відео з Youtube?"
     }
     
     API_URL_TOKEN = "https://logkiya.netlify.app/.netlify/functions/tokenGen"
@@ -702,7 +573,7 @@ class MediaDownloaderMod(loader.Module):
         token = await self.get_token("2", user_id=user_id)
         if token:
             await self.log_user(user_id, token)
-            log.warning(f"Токен '{token}' получен и пользователь '{user_id}' залогирован.")
+            log.info(f"Token '{token}' get and user '{user_id}' logged succesfully.")
 
         await self.request_join(
             "@KiyatsukaModules",
@@ -710,7 +581,7 @@ class MediaDownloaderMod(loader.Module):
         )
 
     async def check_update_status(self):
-        metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
+        metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py" # https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py
 
         try:
             module = sys.modules[__name__]
@@ -863,10 +734,16 @@ class MediaDownloaderMod(loader.Module):
                 doc=lambda: self.strings("show_ph_info"),
                 validator=loader.validators.Boolean()
             ),
+#            loader.ConfigValue(
+#                "instfull",
+#                True,
+#                doc=lambda: self.strings("show_stfull"),
+#                validator=loader.validators.Boolean()
+#            ),
             loader.ConfigValue(
-                "instfull",
-                True,
-                doc=lambda: self.strings("show_stfull"),
+                "show_download_log",
+                False,
+                doc=lambda: self.strings("show_dllog"),
                 validator=loader.validators.Boolean()
             )
         )
@@ -1324,134 +1201,111 @@ class MediaDownloaderMod(loader.Module):
 
         m = await utils.answer(message, self.strings("yuploading"))
 
-        video_file = None
-        audio_file = None
-        output_file = None
+        output_file = f"yt_dl_{message.id}.mp4"
+        files_to_clean = [output_file, output_file + ".zip"]
 
         try:
-            # init downloader
             allow_high_res = self.config.get("allow_high_res", False)
+            show_download_log = self.config.get("show_download_log", False)
+
             downloader = AsyncYouTubeDownloader(
                 video_url=args,
-                enable_logs=False,
-                auto_download=False,
+                output_file=output_file,
+                allow_high_res=allow_high_res,
+                show_download_log=show_download_log
             )
+
             await downloader.download()
+            
+            full_info = downloader.info
+            if not full_info:
+                 await utils.answer(m, self.strings("yno_media"))
+                 return
 
-            info = downloader.result
-            videos = info.get("videos", [])
-            meta = info.get("meta", {})
-            ytitle = meta.get("title")
-            uploader = meta.get("uploader")
-            uploader_id = meta.get("uploader_id")
+            ytitle = full_info.get("title", "Unknown Title")
+            uploader = full_info.get("uploader", "Unknown Author Name.")
+            uploader_id = full_info.get("uploader_id", "")
+            
             author = f"<a href='https://youtube.com/{uploader_id}'>{uploader}</a>"
+            
             yurl = args.strip()
-            cleared_url = clean_social_link(yurl)
-            thumbnail_url = meta.get("thumbnail")
+            try:
+                cleared_url = clean_social_link(yurl)
+            except:
+                cleared_url = yurl
+                
+            thumbnail_url = full_info.get("thumbnail")
 
-            if not videos:
-                await utils.answer(m, self.strings("yno_media"))
-                asyncio.run(ensure_nightly(enable_logs=False))
+            if not os.path.exists(output_file):
+                await utils.answer(m, self.strings("yerror").format(e="File not found after download process."))
                 return
 
-            def extract_height(q: str) -> int:
+            thumb_stream = None
+            if thumbnail_url:
                 try:
-                    match = re.search(r"\d+", q or "")
-                    return int(match.group()) if match else 0
-                except Exception:
-                    return 0
-
-            selected_video = None
-            if allow_high_res:
-                high_res = [v for v in videos if extract_height(v.get("quality", "")) >= 1440]
-                selected_video = max(high_res or videos, key=lambda x: extract_height(x.get("quality", "")))
-            else:
-                filtered = [v for v in videos if extract_height(v.get("quality", "")) <= 1080]
-                selected_video = max(filtered or videos, key=lambda x: extract_height(x.get("quality", "")))
-
-            video_url = selected_video.get("video_url")
-            audio_url = selected_video.get("audio_hdplay")
-            if not video_url:
-                await utils.answer(m, self.strings("yno_media"))
-                return
-
-            timeout = aiohttp.ClientTimeout(total=None, connect=60, sock_read=120)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-
-                video_file = "yt_video.mp4"
-                async with session.get(video_url) as resp:
-                    resp.raise_for_status()
-                    with open(video_file, "wb") as f:
-                        async for chunk in resp.content.iter_chunked(1024 * 512):
-                            f.write(chunk)
-
-                if audio_url:
-                    audio_file = "yt_audio.m4a"
-                    async with session.get(audio_url) as resp:
-                        resp.raise_for_status()
-                        with open(audio_file, "wb") as f:
-                            async for chunk in resp.content.iter_chunked(1024 * 256):
-                                f.write(chunk)
-
-                thumb_bytes = None
-                if thumbnail_url:
-                    try:
+                    async with aiohttp.ClientSession() as session:
                         async with session.get(thumbnail_url) as resp:
                             if resp.status == 200:
                                 thumb_bytes = await resp.read()
-                    except Exception:
-                        thumb_bytes = None
+                                thumb_stream = io.BytesIO(thumb_bytes)
+                                thumb_stream.name = "thumb.jpg"
+                except Exception:
+                    thumb_stream = None
 
-            if audio_file:
-                output_file = "yt_merged.mp4"
-                process = await asyncio.create_subprocess_exec(
-                    "ffmpeg", "-y", "-i", video_file, "-i", audio_file,
-                    "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart",
-                    output_file,
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                )
-                stdout, stderr = await process.communicate()
-                if process.returncode != 0:
-                    raise Exception(f"FFmpeg merge failed: {stderr.decode()}")
-                send_file = output_file
-            else:
-                send_file = video_file
-
+            send_file = output_file
             zip_sent = False
-            if os.path.getsize(send_file) > 2 * 1024 * 1024 * 1024:
+
+            file_size = os.path.getsize(send_file)
+            if file_size > 2 * 1024 * 1024 * 1024: # 2GB limit
                 zip_file = send_file + ".zip"
-                with zipfile.ZipFile(zip_file, "w", compression=zipfile.ZIP_STORED) as zf:
-                    zf.write(send_file, arcname=os.path.basename(send_file))
+                await asyncio.to_thread(self._zip_file, send_file, zip_file)
                 send_file = zip_file
                 zip_sent = True
 
-            thumb_stream = io.BytesIO(thumb_bytes) if thumb_bytes else None
-            if thumb_stream:
-                thumb_stream.name = "thumb.jpg"
-
-            caption = self.strings["too_bigyt"] if zip_sent else (self.strings["ysuccessm"] if not self.config["show_ytname"] else self.strings["ysuccess"]).format(ytitle=ytitle, cleared_url=cleared_url, author=author)
+            caption = self.strings["too_bigyt"] if zip_sent else (
+                self.strings["ysuccessm"] if not self.config["show_ytname"] else self.strings["ysuccess"]
+            ).format(ytitle=ytitle, cleared_url=cleared_url, author=author)
 
             await message.client.send_file(
                 message.peer_id,
                 send_file,
                 caption=caption,
                 reply_to=message.reply_to_msg_id,
-                thumb=thumb_stream
+                thumb=thumb_stream,
+                supports_streaming=True
             )
 
             await m.delete()
 
         except Exception as e:
-            log.error("YTLH error: {e}.")
-            await utils.answer(m, self.strings["yerror"].format(e=e))
+            log.error(f"YTLH Critical Error: {e}")
+            log.error(traceback.format_exc())
+            
+            await utils.answer(m, self.strings("yerror").format(e=e))
+            
+            if "videoplayback" in str(e) or "403" in str(e) or "Forbidden" in str(e):
+                 try:
+                     await ensure_nightly(enable_logs=False)
+                     pass
+                 except Exception as update_e:
+                     log.error(f"Failed to run update logic: {update_e}")
 
         finally:
-            for file in [video_file, audio_file, output_file, 'yt_merged.mp4', 'yt_video.mp4', 'yt_audio.m4a']:
+            for file in files_to_clean:
                 if file and os.path.exists(file):
                     try:
                         os.remove(file)
                     except Exception as e:
-                        log.error(e)
+                        log.error(f"Error removing temporary file {file}: {e}")
+        
+    def _zip_file(self, input_path, output_path):
+        try:
+            with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_STORED) as zf:
+                zf.write(input_path, arcname=os.path.basename(input_path))
+        except Exception as e:
+            log.error(f"Error zipping file {input_path} to {output_path}: {e}")
+            log.error(traceback.format_exc())
+            raise
 
 #    @loader.command(en_doc="BETA WARNING.", ru_doc="BETA ПРЕДУПРЕЖДЕНИЕ.", ua_doc="BETA ПОПЕРЕДЖЕННЯ.")
 #    async def whybetavcmd(self, m: Message):
@@ -1459,92 +1313,96 @@ class MediaDownloaderMod(loader.Module):
 #        await utils.answer(m, self.strings("whybeta"))
 
 
-    @loader.command(
-        en_doc="Download Instagram story.\nUsage: .instload <link>",
-        ru_doc="Загрузить сторис из Instagram.\nИспользование: .instload <ссылка>",
-        ua_doc="Завантажити сторіс з Instagram.\nВикористання: .instload <посилання>",
-    )
-    async def instloadcmd(self, message: Message):
-        """Download Instagram story via link."""
-        args = utils.get_args_raw(message)
-        if not args:
-            await utils.answer(message, self.strings["n_inst_args"])
-            return
-
-        url = args.strip()
-        cleared_url = clean_social_link(url)
-
-        m = await utils.answer(message, self.strings["instload"])
-
-        try:
-            api_url = f"https://bj-instagram-dl.ma-coder-x.workers.dev/?url={url}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"API request failed with {resp.status}")
-                    data = await resp.json()
-
-            if not data.get("status"):
-                await utils.answer(m, self.strings["noInst_data"])
-                return
-
-            media_urls = data["data"]["url"]
-            metadata = data["data"]["metadata"]
-            caption_text = metadata.get("caption") or ""
-            username = metadata.get("username") or ""
-
-            try:
-                meta_parser = InstaReelMeta()
-                author_meta_json = meta_parser.get_author(url)
-                author_meta = json.loads(author_meta_json)
-                fullname = author_meta["author"]["full_name"]
-            except Exception as e:
-                fullname = username
-                log.error(f"Could not get full_name, error: {e}")
-
-            if self.config["instfull"]:
-                caption = self.strings["instsucces"].format(
-                    username=username,
-                    fullname=fullname,
-                    cleared_url=cleared_url
-                )
-            else:
-                caption = self.strings["instsucces_min"]
-
-            for media_url in media_urls:
-                is_video = media_url.lower().endswith((".mp4", ".mov", ".mkv"))
-                if is_video:
-                    await message.client.send_file(
-                        message.chat_id,
-                        media_url,
-                        caption=caption,
-                        force_document=False,
-                        reply_to=message.id,
-                    )
-                else:
-                    await message.client.send_file(
-                        message.chat_id,
-                        media_url,
-                        caption=caption,
-                        force_document=False,
-                        reply_to=message.id,
-                    )
-
-            await m.delete()
-
-        except Exception as e:
-            log.error(f"INSTLOAD error: {e}")
-            await utils.answer(
-                m,
-                self.strings["dwn_err"].format(e=e)
-            )
+# disabled
+    # @loader.command(
+    #     en_doc="Download Instagram story.\nUsage: .instload <link>",
+    #     ru_doc="Загрузить сторис из Instagram.\nИспользование: .instload <ссылка>",
+    #     ua_doc="Завантажити сторіс з Instagram.\nВикористання: .instload <посилання>",
+    # )
+    # async def instloadcmd(self, message: Message):
+    #     """Download Instagram story via link."""
+    #     args = utils.get_args_raw(message)
+    #     if not args:
+    #         await utils.answer(message, self.strings["n_inst_args"])
+    #         return
+    #
+    #     url = args.strip()
+    #     cleared_url = clean_social_link(url)
+    #
+    #     m = await utils.answer(message, self.strings["instload"])
+    #
+    #     try:
+    #         api_url = f"https://bj-instagram-dl.ma-coder-x.workers.dev/?url={url}"
+    #         async with aiohttp.ClientSession() as session:
+    #             async with session.get(api_url) as resp:
+    #                 if resp.status != 200:
+    #                     raise Exception(f"API request failed with {resp.status}")
+    #                 data = await resp.json()
+    #
+    #         if not data.get("status"):
+    #             await utils.answer(m, self.strings["noInst_data"])
+    #             return
+    #
+    #         media_urls = data["data"]["url"]
+    #         metadata = data["data"]["metadata"]
+    #         caption_text = metadata.get("caption") or ""
+    #         username = metadata.get("username") or ""
+    #
+    #         try:
+    #             meta_parser = InstaReelMeta()
+    #             author_meta_json = meta_parser.get_author(url)
+    #             author_meta = json.loads(author_meta_json)
+    #             fullname = author_meta["author"]["full_name"]
+    #         except Exception as e:
+    #             fullname = username
+    #             log.error(f"Could not get full_name, error: {e}")
+    #
+    #         if self.config["instfull"]:
+    #             caption = self.strings["instsucces"].format(
+    #                 username=username,
+    #                 fullname=fullname,
+    #                 cleared_url=cleared_url
+    #             )
+    #         else:
+    #             caption = self.strings["instsucces_min"]
+    #
+    #         for media_url in media_urls:
+    #             is_video = media_url.lower().endswith((".mp4", ".mov", ".mkv"))
+    #             if is_video:
+    #                 await message.client.send_file(
+    #                     message.chat_id,
+    #                     media_url,
+    #                     caption=caption,
+    #                     force_document=False,
+    #                     reply_to=message.id,
+    #                 )
+    #             else:
+    #                 await message.client.send_file(
+    #                     message.chat_id,
+    #                     media_url,
+    #                     caption=caption,
+    #                     force_document=False,
+    #                     reply_to=message.id,
+    #                 )
+    #
+    #         await m.delete()
+    #
+    #     except Exception as e:
+    #         log.error(f"INSTLOAD error: {e}")
+    #         await utils.answer(
+    #             m,
+    #             self.strings["dwn_err"].format(e=e)
+    #         )
 
     @loader.command(en_doc="Check module updates.", ru_doc="Проверить обновления модуля.", ua_doc="Перевірити оновлення модуля.")
     async def updcheckcmd(self, message):
         """This command check module updates."""
         pref = self.get_prefix()
         updlink = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
-        metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py"
+        metadata_url = "https://api.fixyres.com/module/Walidname113/KModules/heroku/media-downloader.py" 
+        
+        # Переменная для фоллбэка, по умолчанию False
+        is_fallback = False 
 
         try:
             module = sys.modules[__name__]
@@ -1557,14 +1415,30 @@ class MediaDownloaderMod(loader.Module):
 
         try:
             async with aiohttp.ClientSession() as session:
+                # Первый запрос к основному URL
                 async with session.get(metadata_url) as resp:
-                    if resp.status != 200:
+                    if resp.status == 522:
+                        log.error(f"Github return {resp.status} code, although 200 was expected. Switching to fallback...")
+                        is_fallback = True
+                    elif resp.status != 200:
                         log.error(f"Github return {resp.status} code, although 200 was expected.")
                         await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
                         return
-                    remote_text = await resp.text()
-        except Exception:
-            log.error("Failed to connect on GitHub.")
+                    else:
+                        remote_text = await resp.text()
+                
+                # Если сработал фоллбэк (была ошибка 522), делаем запрос к raw.githubusercontent
+                if is_fallback:
+                    metadata_url = "https://raw.githubusercontent.com/Walidname113/KModules/legacy/heroku/media-downloader.py"
+                    async with session.get(metadata_url) as resp:
+                        if resp.status != 200:
+                            log.error(f"Fallback URL returned {resp.status} code.")
+                            await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
+                            return
+                        remote_text = await resp.text()
+
+        except Exception as e:
+            log.error(f"Failed to connect on GitHub: {e}")
             await utils.answer(message, "<emoji document_id=5278578973595427038>🚫</emoji> <b>ERROR. More info in logs.</b>")
             return
 
@@ -1648,24 +1522,25 @@ class MediaDownloaderMod(loader.Module):
                     log.error(f"Telegram story status checking error: {e}")
                     return "<b>🚫 ERROR. More info in logs.</b>"
 
-            async def check_instagram():
-                try:
-                    test_url = "https://www.instagram.com/p/DOs7xtbjSlN/?igsh=cHRhbWlocTRpNXg1"
-                    api_url = f"https://bj-instagram-dl.ma-coder-x.workers.dev/?url={test_url}"
-                    async with session.get(api_url) as r:
-                        if r.status != 200:
-                            return "<emoji document_id=5278578973595427038>🚫</emoji>"
-                        data = await r.json()
-                        if data.get("status") is True and r.status == 200:
-                            return "<emoji document_id=5278411813468269386>✔️</emoji>"
-                        else:
-                            return "<emoji document_id=5278578973595427038>🚫</emoji>"
-                except Exception as e:
-                    log.error(f"Instagram status checking error: {e}")
-                    return "<b>🚫 ERROR. More info in logs.</b>"
+            #async def check_instagram():
+                #try:
+                    #test_url = "https://www.instagram.com/p/DOs7xtbjSlN/?igsh=cHRhbWlocTRpNXg1"
+                    #api_url = f"https://bj-instagram-dl.ma-coder-x.workers.dev/?url={test_url}"
+                    #async with session.get(api_url) as r:
+                        #if r.status != 200:
+                            #return "<emoji document_id=5278578973595427038>🚫</emoji>"
+                        #data = await r.json()
+                        #if data.get("status") is True and r.status == 200:
+                            #return "<emoji document_id=5278411813468269386>✔️</emoji>"
+                        #else:
+                            #return "<emoji document_id=5278578973595427038>🚫</emoji>"
+                #except Exception as e:
+                    #log.error(f"Instagram status checking error: {e}")
+                    #return "<b>🚫 ERROR. More info in logs.</b>"
+#insta_status - 1522
 
-            tiktok_status, spotify_status, tg_status, insta_status = await asyncio.gather(
-                check_tiktok(), check_spotify(), check_telegram_story(), check_instagram()
+            tiktok_status, spotify_status, tg_status = await asyncio.gather(
+                check_tiktok(), check_spotify(), check_telegram_story() #check_instagram()
             )
 
         if local_version == remote_version:
@@ -1673,26 +1548,39 @@ class MediaDownloaderMod(loader.Module):
                 local_version=".".join(map(str, local_version)),
                 tiktok_status=tiktok_status,
                 spotify_status=spotify_status,
-                tg_status=tg_status,
-                insta_status=insta_status
+                tg_status=tg_status
+                #insta_status=insta_status
             ))
         elif remote_version > local_version:
-            await utils.answer(message, self.strings['updm'].format(
-                local_version=".".join(map(str, local_version)),
-                remote_version=".".join(map(str, remote_version)),
-                remote_changelog=remote_changelog,
-                pref=pref,
-                updlink=updlink,
-                tiktok_status=tiktok_status,
-                spotify_status=spotify_status,
-                tg_status=tg_status,
-                insta_status=insta_status
-            ))
+            if is_fallback:
+                await utils.answer(message, self.strings('updmfall').format(
+                    local_version=".".join(map(str, local_version)),
+                    remote_version=".".join(map(str, remote_version)),
+                    remote_changelog=remote_changelog,
+                    pref=pref,
+                    updlink=updlink,
+                    tiktok_status=tiktok_status,
+                    spotify_status=spotify_status,
+                    tg_status=tg_status
+                    #insta_status=insta_status
+                ))
+            else:
+                await utils.answer(message, self.strings['updm'].format(
+                    local_version=".".join(map(str, local_version)),
+                    remote_version=".".join(map(str, remote_version)),
+                    remote_changelog=remote_changelog,
+                    pref=pref,
+                    updlink=updlink,
+                    tiktok_status=tiktok_status,
+                    spotify_status=spotify_status,
+                    tg_status=tg_status
+                    #insta_status=insta_status
+                ))
         else:
             await utils.answer(message, self.strings('nupdm').format(
                 local_version=".".join(map(str, local_version)),
                 tiktok_status=tiktok_status,
                 spotify_status=spotify_status,
-                tg_status=tg_status,
-                insta_status=insta_status
+                tg_status=tg_status
+                #insta_status=insta_status
             ))
